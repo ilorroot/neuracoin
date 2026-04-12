@@ -83,3 +83,8 @@ NeuraCoin creates a new primitive for the AI economy: trustless, permissionless 
 ---
 
 *This whitepaper is a living document and will be updated as the protocol design matures.*
+
+
+## License
+
+MIT
