@@ -43,7 +43,7 @@ PRIVATE_KEY    = os.getenv("NEURACOIN_KEY",      "")
 # ── ABI loading ───────────────────────────────────────────────────────────────
 
 def load_abi(name: str) -> list:
-    """Load contract ABI from the contracts/ directory."""
+    """Load contract ABI from the contracts/ directory by filename."""
     abi_path = Path(__file__).parent.parent / "contracts" / f"{name}.json"
     if not abi_path.exists():
         return []
