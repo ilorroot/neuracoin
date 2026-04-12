@@ -85,3 +85,8 @@ NRC accrues value through:
 
 
 <!-- Last reviewed: 2026-04-12 -->
+
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first.
