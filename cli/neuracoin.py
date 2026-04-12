@@ -84,7 +84,7 @@ def status():
 
     w3 = get_web3()
     if w3:
-        block = w3.eth.block_number
+        block = w3.eth.get_block('latest')number
         console.print(f"[green]✓ Connected[/green]  RPC: {DEFAULT_RPC}")
         console.print(f"  Latest block:  {block:,}")
     else:
