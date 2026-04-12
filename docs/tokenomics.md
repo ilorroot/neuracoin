@@ -82,3 +82,6 @@ NRC accrues value through:
 2. **Staking lock-up** — providers and validators lock NRC, reducing circulating supply
 3. **Fee burn** — a portion of protocol fees may be burned via governance vote
 4. **Growing demand** — as AI compute demand grows, protocol usage (and NRC demand) grows proportionally
+
+
+<!-- Last reviewed: 2026-04-12 -->
