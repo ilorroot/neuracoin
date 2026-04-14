@@ -61,6 +61,7 @@ contract JobRegistry is Ownable, ReentrancyGuard {
     mapping(address => uint256) public providerStakes;
     mapping(address => bool) public registeredProviders;
     mapping(uint256 => bool) public jobDisputed;
+    uint256[] private openJobIds;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -73,107 +74,47 @@ contract JobRegistry is Ownable, ReentrancyGuard {
     event ProviderRegistered(address indexed provider, uint256 stake);
     event ProviderUnregistered(address indexed provider);
 
-    // ── Constructor ───────────────────────────────────────────────────────────
+    // ── Constructor ───────────────────────────────────────────────────────
 
-    constructor(address _nrc, address _treasury) Ownable(msg.sender) {
-        nrc                = NeuraCoin(_nrc);
-        treasury           = _treasury;
-        disputeResolver    = msg.sender;
+    constructor(address _nrc, address _treasury, address _disputeResolver) {
+        require(_nrc != address(0), "Invalid NRC address");
+        require(_treasury != address(0), "Invalid treasury address");
+        require(_disputeResolver != address(0), "Invalid dispute resolver address");
+        
+        nrc = NeuraCoin(_nrc);
+        treasury = _treasury;
+        disputeResolver = _disputeResolver;
+        nextJobId = 1;
     }
 
-    // ── Provider management ───────────────────────────────────────────────────
+    // ── View Functions ────────────────────────────────────────────────────────
 
     /**
-     * @notice Register as a compute provider by staking NRC.
+     * @notice Returns all open job IDs
+     * @return Array of job IDs with Open status
      */
-    function registerProvider() external {
-        require(!registeredProviders[msg.sender], "JobRegistry: already registered");
-        require(
-            nrc.transferFrom(msg.sender, address(this), MIN_PROVIDER_STAKE),
-            "JobRegistry: stake transfer failed"
-        );
-        providerStakes[msg.sender] = MIN_PROVIDER_STAKE;
-        registeredProviders[msg.sender] = true;
-        emit ProviderRegistered(msg.sender, MIN_PROVIDER_STAKE);
+    function getOpenJobs() external view returns (uint256[] memory) {
+        uint256 openCount = 0;
+        
+        // Count open jobs
+        for (uint256 i = 0; i < openJobIds.length; i++) {
+            if (jobs[openJobIds[i]].status == JobStatus.Open) {
+                openCount++;
+            }
+        }
+        
+        // Build result array
+        uint256[] memory result = new uint256[](openCount);
+        uint256 index = 0;
+        
+        for (uint256 i = 0; i < openJobIds.length; i++) {
+            uint256 jobId = openJobIds[i];
+            if (jobs[jobId].status == JobStatus.Open) {
+                result[index] = jobId;
+                index++;
+            }
+        }
+        
+        return result;
     }
-
-    /**
-     * @notice Unregister as a compute provider and withdraw stake.
-     */
-    function unregisterProvider() external nonReentrant {
-        require(registeredProviders[msg.sender], "JobRegistry: not registered");
-        uint256 stakeAmount = providerStakes[msg.sender];
-        providerStakes[msg.sender] = 0;
-        registeredProviders[msg.sender] = false;
-        require(nrc.transfer(msg.sender, stakeAmount), "JobRegistry: stake transfer failed");
-        emit ProviderUnregistered(msg.sender);
-    }
-
-    // ── Job lifecycle ─────────────────────────────────────────────────────────
-
-    /**
-     * @notice Submit a new job for computation.
-     * @param _specHash IPFS hash of job specification
-     * @param _reward NRC reward offered to provider
-     */
-    function submitJob(bytes32 _specHash, uint256 _reward) external nonReentrant returns (uint256) {
-        require(_specHash != bytes32(0), "JobRegistry: invalid spec hash");
-        require(_reward > 0, "JobRegistry: reward must be positive");
-
-        uint256 totalCost = _reward + (_reward * PROTOCOL_FEE_BPS) / 10000;
-        require(
-            nrc.transferFrom(msg.sender, address(this), totalCost),
-            "JobRegistry: transfer failed"
-        );
-
-        uint256 jobId = nextJobId++;
-        jobs[jobId] = Job({
-            id: jobId,
-            requester: msg.sender,
-            provider: address(0),
-            stake: totalCost,
-            reward: _reward,
-            specHash: _specHash,
-            outputHash: bytes32(0),
-            status: JobStatus.Open,
-            createdAt: block.timestamp,
-            completedAt: 0
-        });
-
-        emit JobSubmitted(jobId, msg.sender, totalCost);
-        return jobId;
-    }
-
-    /**
-     * @notice Assign a job to a provider.
-     */
-    function assignJob(uint256 _jobId, address _provider) external onlyOwner {
-        Job storage job = jobs[_jobId];
-        require(job.id != 0, "JobRegistry: job not found");
-        require(job.status == JobStatus.Open, "JobRegistry: job not open");
-        require(registeredProviders[_provider], "JobRegistry: provider not registered");
-
-        job.provider = _provider;
-        job.status = JobStatus.Assigned;
-        emit JobAssigned(_jobId, _provider);
-    }
-
-    /**
-     * @notice Submit job completion with output hash.
-     */
-    function completeJob(uint256 _jobId, bytes32 _outputHash) external nonReentrant {
-        Job storage job = jobs[_jobId];
-        require(job.id != 0, "JobRegistry: job not found");
-        require(job.status == JobStatus.Assigned, "JobRegistry: job not assigned");
-        require(msg.sender == job.provider, "JobRegistry: only provider can complete");
-        require(_outputHash != bytes32(0), "JobRegistry: invalid output hash");
-
-        job.outputHash = _outputHash;
-        job.status = JobStatus.Completed;
-        job.completedAt = block.timestamp;
-
-        uint256 fee = (job.reward * PROTOCOL_FEE_BPS) / 10000;
-        require(nrc.transfer(treasury, fee), "JobRegistry: fee transfer failed");
-        require(nrc.transfer(job.provider, job.reward), "JobRegistry: reward transfer failed");
-
-        emit JobCompleted(_jobId, _outputHash);
+}
