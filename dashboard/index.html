@@ -42,14 +42,178 @@
       letter-spacing: 2px;
     }
     .logo span { color: var(--accent2); }
+    
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+
     .nav-links a {
       color: var(--muted);
       text-decoration: none;
-      margin-left: 1.5rem;
       font-size: 0.85rem;
       transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--text); }
+
+    /* Wallet Button */
+    .wallet-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      color: var(--bg);
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+    .wallet-btn:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 400px;
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+      font-size: 1.2rem;
+      color: var(--accent2);
+      letter-spacing: 1px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--text);
+    }
+
+    .wallet-info {
+      margin-bottom: 1.5rem;
+    }
+
+    .wallet-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .wallet-address {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--accent2);
+      word-break: break-all;
+      font-family: monospace;
+      margin-bottom: 1rem;
+    }
+
+    .balance-section {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .balance-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .balance-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .balance-name {
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .balance-amount {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--green);
+    }
+
+    .disconnect-btn {
+      width: 100%;
+      background: var(--red);
+      border: none;
+      color: var(--text);
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-family: 'Courier New', monospace;
+    }
+
+    .disconnect-btn:hover {
+      opacity: 0.8;
+    }
 
     /* Layout */
     .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
@@ -92,138 +256,3 @@
       color: var(--green);
       margin-top: 0.25rem;
     }
-
-    /* Two column layout */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-    }
-
-    /* Chart styles */
-    .chart-container {
-      position: relative;
-      width: 100%;
-      height: 300px;
-      margin-top: 1rem;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    .chart-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-
-    .price-current {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--accent2);
-    }
-
-    .price-change {
-      font-size: 0.9rem;
-      color: var(--green);
-    }
-
-    .price-change.negative {
-      color: var(--red);
-    }
-
-    /* Jobs table */
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th {
-      text-align: left;
-      color: var(--muted);
-      font-size: 0.7rem;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    td {
-      padding: 0.65rem 0;
-      border-bottom: 1px solid var(--border);
-      color: var(--text);
-    }
-    tr:last-child td { border-bottom: none; }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 0.7rem;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-    .badge-success {
-      background: rgba(61, 224, 160, 0.2);
-      color: var(--green);
-    }
-    .badge-pending {
-      background: rgba(124, 106, 247, 0.2);
-      color: var(--accent);
-    }
-    .badge-error {
-      background: rgba(247, 106, 106, 0.2);
-      color: var(--red);
-    }
-
-    @media (max-width: 768px) {
-      .stats { grid-template-columns: repeat(2, 1fr); }
-      .grid-2 { grid-template-columns: 1fr; }
-    }
-  </style>
-</head>
-<body>
-  <nav>
-    <div class="logo">NEURA<span>COIN</span></div>
-    <div class="nav-links">
-      <a href="#dashboard">Dashboard</a>
-      <a href="#compute">Compute</a>
-      <a href="#earnings">Earnings</a>
-      <a href="#docs">Docs</a>
-    </div>
-  </nav>
-
-  <div class="container">
-    <!-- Stats -->
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-label">NRC Price</div>
-        <div class="stat-value" id="nrc-price">$2.84</div>
-        <div class="stat-sub" id="nrc-change">+12.5% (24h)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Market Cap</div>
-        <div class="stat-value">$284M</div>
-        <div class="stat-sub">+8.2% (7d)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Active GPUs</div>
-        <div class="stat-value">4,230</div>
-        <div class="stat-sub">+180 (24h)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Jobs Completed</div>
-        <div class="stat-value">18,942</div>
-        <div class="stat-sub">+2,341 (24h)</div>
-      </div>
-    </div>
-
-    <!-- Charts -->
-    <div class="grid-2
