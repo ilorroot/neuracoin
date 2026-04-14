@@ -108,6 +108,42 @@
       padding: 1.5rem;
     }
 
+    /* Chart styles */
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 300px;
+      margin-top: 1rem;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .chart-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .price-current {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--accent2);
+    }
+
+    .price-change {
+      font-size: 0.9rem;
+      color: var(--green);
+    }
+
+    .price-change.negative {
+      color: var(--red);
+    }
+
     /* Jobs table */
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     th {
@@ -129,182 +165,65 @@
     .badge {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: 4px;
+      border-radius: 3px;
       font-size: 0.7rem;
       font-weight: bold;
+      letter-spacing: 1px;
     }
-    .badge-open     { background: #1a2a3a; color: var(--accent2); }
-    .badge-assigned { background: #2a1a3a; color: var(--accent); }
-    .badge-done     { background: #1a3a2a; color: var(--green); }
-
-    /* Compute chart bars */
-    .bar-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-    .bar-label { font-size: 0.75rem; color: var(--muted); width: 60px; }
-    .bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; }
-    .bar-fill  { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
-    .bar-val   { font-size: 0.75rem; color: var(--text); width: 50px; text-align: right; }
-
-    /* Terminal block */
-    .terminal {
-      background: #0d0d14;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-      font-size: 0.78rem;
-      line-height: 1.8;
+    .badge-success {
+      background: rgba(61, 224, 160, 0.2);
+      color: var(--green);
     }
-    .terminal .prompt { color: var(--accent2); }
-    .terminal .out    { color: var(--muted); }
-    .terminal .good   { color: var(--green); }
-    .terminal .warn   { color: #f7c76a; }
-
-    /* Price ticker */
-    .ticker {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
+    .badge-pending {
+      background: rgba(124, 106, 247, 0.2);
+      color: var(--accent);
     }
-    .ticker .price { font-size: 1.4rem; font-weight: bold; color: var(--text); }
-    .ticker .change { color: var(--green); font-size: 0.85rem; }
+    .badge-error {
+      background: rgba(247, 106, 106, 0.2);
+      color: var(--red);
+    }
+
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-
-<nav>
-  <div class="logo">NEURA<span>COIN</span></div>
-  <div class="nav-links">
-    <a href="#">Dashboard</a>
-    <a href="#">Jobs</a>
-    <a href="#">Providers</a>
-    <a href="#">Docs</a>
-    <a href="#" style="color: var(--accent);">Connect Wallet</a>
-  </div>
-</nav>
-
-<div class="container">
-
-  <!-- Stats -->
-  <div class="stats">
-    <div class="stat-card">
-      <div class="stat-label">NRC Price</div>
-      <div class="stat-value">$0.042</div>
-      <div class="stat-sub">▲ +8.3% (24h)</div>
+  <nav>
+    <div class="logo">NEURA<span>COIN</span></div>
+    <div class="nav-links">
+      <a href="#dashboard">Dashboard</a>
+      <a href="#compute">Compute</a>
+      <a href="#earnings">Earnings</a>
+      <a href="#docs">Docs</a>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">Active Jobs</div>
-      <div class="stat-value">1,284</div>
-      <div class="stat-sub">▲ +12 since yesterday</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Compute Nodes</div>
-      <div class="stat-value">847</div>
-      <div class="stat-sub">▲ 94.2% uptime</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">NRC Staked</div>
-      <div class="stat-value">42.1M</div>
-      <div class="stat-sub">▲ 4.2% of supply</div>
-    </div>
-  </div>
+  </nav>
 
-  <!-- Main grid -->
-  <div class="grid-2">
-
-    <!-- Recent jobs -->
-    <div class="card">
-      <h2>Recent Jobs</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Type</th>
-            <th>Stake</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>#1291</td>
-            <td>LLM Fine-tune</td>
-            <td>500 NRC</td>
-            <td><span class="badge badge-assigned">Assigned</span></td>
-          </tr>
-          <tr>
-            <td>#1290</td>
-            <td>Image Diffusion</td>
-            <td>200 NRC</td>
-            <td><span class="badge badge-done">Completed</span></td>
-          </tr>
-          <tr>
-            <td>#1289</td>
-            <td>RL Training</td>
-            <td>1,200 NRC</td>
-            <td><span class="badge badge-open">Open</span></td>
-          </tr>
-          <tr>
-            <td>#1288</td>
-            <td>Embedding Batch</td>
-            <td>80 NRC</td>
-            <td><span class="badge badge-done">Completed</span></td>
-          </tr>
-          <tr>
-            <td>#1287</td>
-            <td>RLHF Reward</td>
-            <td>350 NRC</td>
-            <td><span class="badge badge-assigned">Assigned</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Compute by GPU type -->
-    <div class="card">
-      <h2>Compute by GPU</h2>
-      <div style="margin-top: 0.5rem;">
-        <div class="bar-row">
-          <span class="bar-label">A100</span>
-          <div class="bar-track"><div class="bar-fill" style="width:82%"></div></div>
-          <span class="bar-val">82%</span>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">RTX 4090</span>
-          <div class="bar-track"><div class="bar-fill" style="width:61%"></div></div>
-          <span class="bar-val">61%</span>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">H100</span>
-          <div class="bar-track"><div class="bar-fill" style="width:45%"></div></div>
-          <span class="bar-val">45%</span>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">3090 Ti</span>
-          <div class="bar-track"><div class="bar-fill" style="width:38%"></div></div>
-          <span class="bar-val">38%</span>
-        </div>
-        <div class="bar-row">
-          <span class="bar-label">V100</span>
-          <div class="bar-track"><div class="bar-fill" style="width:22%"></div></div>
-          <span class="bar-val">22%</span>
-        </div>
+  <div class="container">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">NRC Price</div>
+        <div class="stat-value" id="nrc-price">$2.84</div>
+        <div class="stat-sub" id="nrc-change">+12.5% (24h)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Market Cap</div>
+        <div class="stat-value">$284M</div>
+        <div class="stat-sub">+8.2% (7d)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active GPUs</div>
+        <div class="stat-value">4,230</div>
+        <div class="stat-sub">+180 (24h)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Jobs Completed</div>
+        <div class="stat-value">18,942</div>
+        <div class="stat-sub">+2,341 (24h)</div>
       </div>
     </div>
-  </div>
 
-  <!-- Terminal -->
-  <div class="card" style="margin-bottom: 2rem;">
-    <h2>Node Activity Log</h2>
-    <div class="terminal" style="margin-top: 0.75rem;">
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:14:02]</span> <span class="good">Job #1291 assigned to node 0x7f3a...d92c</span></div>
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:13:58]</span> <span class="out">Proof-of-compute submitted for job #1290</span></div>
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:13:41]</span> <span class="good">Job #1290 verified ✓ — 200 NRC released</span></div>
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:12:20]</span> <span class="warn">Job #1285 timeout — reassigning...</span></div>
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:11:05]</span> <span class="out">New provider registered: 0x4a1b...8f21 (stake: 1,000 NRC)</span></div>
-      <div><span class="prompt">→</span> <span class="out">[2026-04-12 19:10:44]</span> <span class="good">Job #1289 submitted — 1,200 NRC escrowed</span></div>
-    </div>
-  </div>
-
-</div>
-
-</body>
-</html>
+    <!-- Charts -->
+    <div class="grid-2
