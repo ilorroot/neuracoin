@@ -74,7 +74,7 @@ contract JobRegistry is Ownable, ReentrancyGuard {
     event ProviderRegistered(address indexed provider, uint256 stake);
     event ProviderUnregistered(address indexed provider);
 
-    // ── Constructor ───────────────────────────────────────────────────────
+    // ── Constructor ───────────────────────────────────────────────────────────
 
     constructor(address _nrc, address _treasury, address _disputeResolver) {
         require(_nrc != address(0), "Invalid NRC address");
@@ -90,31 +90,109 @@ contract JobRegistry is Ownable, ReentrancyGuard {
     // ── View Functions ────────────────────────────────────────────────────────
 
     /**
-     * @notice Returns all open job IDs
-     * @return Array of job IDs with Open status
+     * @notice Returns an array of all open job IDs
+     * @return Array of job IDs with status Open
      */
     function getOpenJobs() external view returns (uint256[] memory) {
-        uint256 openCount = 0;
+        uint256 count = 0;
         
         // Count open jobs
-        for (uint256 i = 0; i < openJobIds.length; i++) {
-            if (jobs[openJobIds[i]].status == JobStatus.Open) {
-                openCount++;
+        for (uint256 i = 1; i < nextJobId; i++) {
+            if (jobs[i].status == JobStatus.Open) {
+                count++;
             }
         }
         
         // Build result array
-        uint256[] memory result = new uint256[](openCount);
+        uint256[] memory result = new uint256[](count);
         uint256 index = 0;
         
-        for (uint256 i = 0; i < openJobIds.length; i++) {
-            uint256 jobId = openJobIds[i];
-            if (jobs[jobId].status == JobStatus.Open) {
-                result[index] = jobId;
+        for (uint256 i = 1; i < nextJobId; i++) {
+            if (jobs[i].status == JobStatus.Open) {
+                result[index] = i;
                 index++;
             }
         }
         
         return result;
     }
-}
+
+    /**
+     * @notice Returns the total number of open jobs
+     * @return Count of jobs with status Open
+     */
+    function getOpenJobCount() external view returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 1; i < nextJobId; i++) {
+            if (jobs[i].status == JobStatus.Open) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * @notice Retrieves a job by ID
+     * @param _jobId The job ID
+     * @return The Job struct
+     */
+    function getJob(uint256 _jobId) external view returns (Job memory) {
+        require(_jobId < nextJobId, "Job does not exist");
+        return jobs[_jobId];
+    }
+
+    /**
+     * @notice Retrieves a dispute by job ID
+     * @param _jobId The job ID
+     * @return The Dispute struct
+     */
+    function getDispute(uint256 _jobId) external view returns (Dispute memory) {
+        require(_jobId < nextJobId, "Job does not exist");
+        return disputes[_jobId];
+    }
+
+    // ── Provider Management ───────────────────────────────────────────────────
+
+    /**
+     * @notice Registers a new GPU provider
+     * @param _stake Amount of NRC to stake as collateral
+     */
+    function registerProvider(uint256 _stake) external nonReentrant {
+        require(_stake >= MIN_PROVIDER_STAKE, "Insufficient stake");
+        require(!registeredProviders[msg.sender], "Already registered");
+        
+        require(nrc.transferFrom(msg.sender, address(this), _stake), "Stake transfer failed");
+        
+        registeredProviders[msg.sender] = true;
+        providerStakes[msg.sender] = _stake;
+        
+        emit ProviderRegistered(msg.sender, _stake);
+    }
+
+    /**
+     * @notice Unregisters a provider and returns their stake
+     */
+    function unregisterProvider() external nonReentrant {
+        require(registeredProviders[msg.sender], "Not registered");
+        
+        uint256 stake = providerStakes[msg.sender];
+        registeredProviders[msg.sender] = false;
+        providerStakes[msg.sender] = 0;
+        
+        require(nrc.transfer(msg.sender, stake), "Stake return failed");
+        
+        emit ProviderUnregistered(msg.sender);
+    }
+
+    // ── Job Lifecycle ─────────────────────────────────────────────────────────
+
+    /**
+     * @notice Submits a new AI compute job
+     * @param _specHash IPFS hash of the job specification
+     * @param _reward Reward amount for the provider in NRC
+     */
+    function submitJob(bytes32 _specHash, uint256 _reward) external nonReentrant returns (uint256) {
+        require(_specHash != bytes32(0), "Invalid spec hash");
+        require(_reward > 0, "Invalid reward");
+        
+        uint256 totalCost
