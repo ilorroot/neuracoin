@@ -28,11 +28,13 @@ contract NeuraCoin is ERC20, Ownable, Pausable {
 
     address public rewardEmitter;       // JobRegistry contract address
     uint256 public totalEmitted;        // Tracks compute rewards emitted so far
+    uint256 public totalBurned;         // Tracks total tokens burned
 
     // ── Events ────────────────────────────────────────────────────────────────
 
     event RewardEmitterSet(address indexed emitter);
     event ComputeRewardMinted(address indexed provider, uint256 amount);
+    event TokenBurned(address indexed burner, uint256 amount);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -65,35 +67,55 @@ contract NeuraCoin is ERC20, Ownable, Pausable {
         emit ComputeRewardMinted(provider, amount);
     }
 
+    // ── Token burning ─────────────────────────────────────────────────────────
+
+    /**
+     * @notice Allows token holders to burn their own tokens.
+     * @param amount Amount of NRC to burn (in wei).
+     */
+    function burn(uint256 amount) external {
+        require(amount > 0, "NRC: burn amount must be greater than zero");
+        _burn(msg.sender, amount);
+        totalBurned += amount;
+        emit TokenBurned(msg.sender, amount);
+    }
+
     // ── Admin ─────────────────────────────────────────────────────────────────
 
     /**
      * @notice Sets the reward emitter address (should be the JobRegistry contract).
-     * @param emitter  New emitter address.
+     * @param emitter Address of the reward emitter contract.
      */
     function setRewardEmitter(address emitter) external onlyOwner {
-        require(emitter != address(0), "NRC: zero address");
+        require(emitter != address(0), "NRC: invalid emitter address");
         rewardEmitter = emitter;
         emit RewardEmitterSet(emitter);
     }
 
-    /// @notice Pause all token transfers (emergency use only).
+    /**
+     * @notice Pauses all token transfers.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
-    /// @notice Resume token transfers.
+    /**
+     * @notice Unpauses all token transfers.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    // ── Overrides ─────────────────────────────────────────────────────────────
+    // ── Pausable hook ─────────────────────────────────────────────────────────
 
-    function _update(address from, address to, uint256 value)
-        internal
-        override
-        whenNotPaused
-    {
-        super._update(from, to, value);
+    /**
+     * @notice Hook to enforce pause state on token transfers.
+     */
+    function _update(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override whenNotPaused {
+        super._update(from, to, amount);
     }
 }
