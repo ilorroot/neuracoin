@@ -87,53 +87,105 @@ contract JobRegistry is Ownable, ReentrancyGuard {
         nextJobId = 1;
     }
 
-    // ── View Functions ────────────────────────────────────────────────────────
+    // ── Provider Management ────────────────────────────────────────────────────
 
-    /**
-     * @notice Returns all open job IDs
-     * @return Array of job IDs with status == Open
-     */
-    function getOpenJobs() external view returns (uint256[] memory) {
-        uint256 openCount = 0;
+    function registerProvider(uint256 stakeAmount) external nonReentrant {
+        require(stakeAmount >= MIN_PROVIDER_STAKE, "Stake below minimum");
+        require(!registeredProviders[msg.sender], "Already registered");
         
-        // Count open jobs
-        for (uint256 i = 1; i < nextJobId; i++) {
-            if (jobs[i].status == JobStatus.Open) {
-                openCount++;
-            }
-        }
+        require(nrc.transferFrom(msg.sender, address(this), stakeAmount), "Stake transfer failed");
         
-        // Allocate result array
-        uint256[] memory result = new uint256[](openCount);
-        uint256 index = 0;
+        registeredProviders[msg.sender] = true;
+        providerStakes[msg.sender] = stakeAmount;
         
-        // Populate result array
-        for (uint256 i = 1; i < nextJobId; i++) {
-            if (jobs[i].status == JobStatus.Open) {
-                result[index] = i;
-                index++;
-            }
-        }
-        
-        return result;
+        emit ProviderRegistered(msg.sender, stakeAmount);
     }
 
-    /**
-     * @notice Returns the total number of jobs in the registry
-     * @return Total job count
-     */
-    function getJobCount() external view returns (uint256) {
-        return nextJobId - 1;
+    function unregisterProvider() external nonReentrant {
+        require(registeredProviders[msg.sender], "Not registered");
+        
+        uint256 stake = providerStakes[msg.sender];
+        registeredProviders[msg.sender] = false;
+        providerStakes[msg.sender] = 0;
+        
+        require(nrc.transfer(msg.sender, stake), "Stake withdrawal failed");
+        
+        emit ProviderUnregistered(msg.sender);
     }
 
-    /**
-     * @notice Retrieves full job details by ID
-     * @param jobId The job ID to query
-     * @return Job struct containing all job details
-     */
-    function getJob(uint256 jobId) external view returns (Job memory) {
-        require(jobId > 0 && jobId < nextJobId, "Job does not exist");
-        return jobs[jobId];
+    // ── Job Submission & Assignment ────────────────────────────────────────────
+
+    function submitJob(uint256 stakeAmount, bytes32 specHash) 
+        external 
+        nonReentrant 
+        returns (uint256) 
+    {
+        require(stakeAmount > 0, "Invalid stake");
+        require(specHash != bytes32(0), "Invalid spec hash");
+        
+        require(nrc.transferFrom(msg.sender, address(this), stakeAmount), "Transfer failed");
+        
+        uint256 jobId = nextJobId++;
+        Job storage job = jobs[jobId];
+        
+        job.id = jobId;
+        job.requester = msg.sender;
+        job.stake = stakeAmount;
+        job.specHash = specHash;
+        job.status = JobStatus.Open;
+        job.createdAt = block.timestamp;
+        
+        openJobIds.push(jobId);
+        
+        emit JobSubmitted(jobId, msg.sender, stakeAmount);
+        return jobId;
     }
 
-}
+    function assignJob(uint256 jobId, address provider, uint256 reward) 
+        external 
+        onlyOwner 
+    {
+        Job storage job = jobs[jobId];
+        require(job.status == JobStatus.Open, "Job not open");
+        require(registeredProviders[provider], "Provider not registered");
+        require(reward > 0, "Invalid reward");
+        
+        job.provider = provider;
+        job.reward = reward;
+        job.status = JobStatus.Assigned;
+        
+        emit JobAssigned(jobId, provider);
+    }
+
+    // ── Job Completion ────────────────────────────────────────────────────────
+
+    function submitJobOutput(uint256 jobId, bytes32 outputHash) 
+        external 
+        nonReentrant 
+    {
+        Job storage job = jobs[jobId];
+        require(msg.sender == job.provider, "Only provider can submit");
+        require(job.status == JobStatus.Assigned, "Job not assigned");
+        require(outputHash != bytes32(0), "Invalid output hash");
+        
+        job.outputHash = outputHash;
+        job.status = JobStatus.Completed;
+        job.completedAt = block.timestamp;
+        
+        emit JobCompleted(jobId, outputHash);
+    }
+
+    // ── Dispute Mechanism ──────────────────────────────────────────────────────
+
+    /**
+     * @notice Flag a completed job for dispute
+     * @param jobId The ID of the job to dispute
+     * @param reason The reason for the dispute (stored on-chain, max 256 chars)
+     */
+    function flagDispute(uint256 jobId, string calldata reason) 
+        external 
+        nonReentrant 
+    {
+        Job storage job = jobs[jobId];
+        require(msg.sender == job.requester, "Only requester can flag dispute");
+        require(
