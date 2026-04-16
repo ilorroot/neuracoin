@@ -29,6 +29,25 @@ NeuraCoin (NRC) is the native utility token of the NeuraCoin protocol. It serves
 
 ---
 
+## Vesting Schedule
+
+Team and advisor tokens follow a **4-year vesting schedule with a 1-year cliff**:
+
+| Recipient Category | Amount (NRC) | Cliff (months) | Vest Duration (months) | Monthly Release | Unlock Date |
+|--------------------|--------------|----------------|------------------------|-----------------|-------------|
+| Core Team          | 100,000,000  | 12             | 48                     | 2,083,333       | TGE + 12mo  |
+| Advisors           | 50,000,000   | 12             | 48                     | 1,041,667       | TGE + 12mo  |
+| Early Employees    | 50,000,000   | 12             | 48                     | 1,041,667       | TGE + 12mo  |
+
+**Vesting Details:**
+- **Cliff:** No tokens are released for the first 12 months after TGE (Token Generation Event)
+- **Linear Vesting:** After cliff, tokens vest linearly over remaining 36 months
+- **No Acceleration:** Vesting schedules are non-accelerating, even in acquisition scenarios
+- **Locked Tokens:** Vesting tokens cannot be transferred, staked, or used for governance until released
+- **Smart Contract Enforcement:** Vesting is enforced by immutable smart contracts
+
+---
+
 ## Emission Schedule
 
 Compute rewards follow a **halving schedule** every 24 months:
@@ -83,10 +102,10 @@ NRC accrues value through:
 3. **Fee burn** — a portion of protocol fees may be burned via governance vote
 4. **Growing demand** — as AI compute demand grows, protocol usage (and NRC demand) grows proportionally
 
+---
 
 <!-- Last reviewed: 2026-04-12 -->
 
-
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first.
+Pull requests are welcome. For
