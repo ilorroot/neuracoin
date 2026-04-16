@@ -41,20 +41,46 @@ NRC_ADDRESS    = os.getenv("NRC_TOKEN_ADDRESS",  "")
 JOB_REGISTRY   = os.getenv("JOB_REGISTRY_ADDR", "")
 PRIVATE_KEY    = os.getenv("NEURACOIN_KEY",      "")
 
+# ── Error Messages ────────────────────────────────────────────────────────────
+
+class ValidationError(Exception):
+    """Custom validation error for better error reporting."""
+    pass
+
+
+def format_error(message: str, context: Optional[str] = None) -> str:
+    """Format error message with optional context."""
+    if context:
+        return f"[red]Error ({context}):[/red] {message}"
+    return f"[red]Error:[/red] {message}"
+
+
 # ── Validators ────────────────────────────────────────────────────────────────
 
 def validate_address(ctx, param, value: str) -> str:
     """Validate Ethereum address format."""
     if not value:
         raise click.BadParameter("Address cannot be empty")
+    
+    value = value.strip()
+    
     if not value.startswith("0x"):
-        raise click.BadParameter("Address must start with '0x'")
+        raise click.BadParameter(
+            f"Address must start with '0x', got: {value[:10]}..."
+        )
+    
     if len(value) != 42:
-        raise click.BadParameter("Invalid address length (expected 42 characters)")
+        raise click.BadParameter(
+            f"Invalid address length: expected 42 characters, got {len(value)}"
+        )
+    
     try:
         int(value, 16)
     except ValueError:
-        raise click.BadParameter("Address contains invalid hexadecimal characters")
+        raise click.BadParameter(
+            "Address contains invalid hexadecimal characters"
+        )
+    
     return value
 
 
@@ -62,142 +88,145 @@ def validate_positive_number(ctx, param, value) -> float:
     """Validate that a number is positive."""
     if value is None:
         return value
+    
+    if isinstance(value, str):
+        value = value.strip()
+    
     try:
         num = float(value)
         if num <= 0:
-            raise click.BadParameter(f"Value must be positive, got {num}")
+            raise click.BadParameter(
+                f"Value must be positive (> 0), got: {num}"
+            )
         return num
-    except ValueError:
-        raise click.BadParameter(f"Invalid number format: {value}")
+    except (ValueError, TypeError):
+        raise click.BadParameter(
+            f"Invalid number format: '{value}' is not a valid number"
+        )
 
 
 def validate_json_file(ctx, param, value: str) -> dict:
     """Validate and load JSON file."""
     if not value:
         raise click.BadParameter("File path cannot be empty")
+
+    value = value.strip()
+    path = Path(value).resolve()
     
-    path = Path(value)
     if not path.exists():
-        raise click.BadParameter(f"File not found: {value}")
-    if not path.suffix.lower() == ".json":
-        raise click.BadParameter(f"File must be JSON format, got: {path.suffix}")
+        raise click.BadParameter(
+            f"File not found: {path}\nPlease provide a valid path to an existing file"
+        )
     
+    if not path.is_file():
+        raise click.BadParameter(
+            f"Path is not a file: {path}"
+        )
+    
+    if path.suffix.lower() != ".json":
+        raise click.BadParameter(
+            f"File must be JSON format (*.json), got: {path.suffix}"
+        )
+
     try:
         with open(path, 'r') as f:
             data = json.load(f)
+        
+        if not isinstance(data, dict):
+            raise click.BadParameter(
+                f"JSON file must contain an object, got: {type(data).__name__}"
+            )
+        
         return data
     except json.JSONDecodeError as e:
-        raise click.BadParameter(f"Invalid JSON in {value}: {str(e)}")
+        raise click.BadParameter(
+            f"Invalid JSON in {path.name}:\n  Line {e.lineno}, Column {e.colno}: {e.msg}"
+        )
     except IOError as e:
-        raise click.BadParameter(f"Cannot read file {value}: {str(e)}")
+        raise click.BadParameter(
+            f"Cannot read file {path}: {str(e)}"
+        )
+
+
+def validate_job_spec(spec: dict) -> None:
+    """Validate job specification structure."""
+    required_fields = ["model", "input_data", "timeout"]
+    missing = [f for f in required_fields if f not in spec]
+    
+    if missing:
+        raise click.BadParameter(
+            f"Job spec missing required fields: {', '.join(missing)}"
+        )
+    
+    if not isinstance(spec.get("timeout"), (int, float)) or spec["timeout"] <= 0:
+        raise click.BadParameter(
+            "Job spec 'timeout' must be a positive number (seconds)"
+        )
+
+
+def validate_stake_amount(amount: float, min_stake: float = 1.0) -> float:
+    """Validate stake amount."""
+    if amount < min_stake:
+        raise click.BadParameter(
+            f"Stake amount must be at least {min_stake} NRC, got: {amount}"
+        )
+    
+    if amount > 1_000_000:
+        raise click.BadParameter(
+            f"Stake amount is unusually high: {amount} NRC (max recommended: 1,000,000)"
+        )
+    
+    return amount
+
+
+# ── Config Validators ─────────────────────────────────────────────────────────
+
+def check_environment() -> None:
+    """Check that required environment variables are set."""
+    errors = []
+    
+    if not NRC_ADDRESS:
+        errors.append("NRC_TOKEN_ADDRESS not set")
+    elif not NRC_ADDRESS.startswith("0x"):
+        errors.append("NRC_TOKEN_ADDRESS is invalid (must start with '0x')")
+    
+    if not JOB_REGISTRY:
+        errors.append("JOB_REGISTRY_ADDR not set")
+    elif not JOB_REGISTRY.startswith("0x"):
+        errors.append("JOB_REGISTRY_ADDR is invalid (must start with '0x')")
+    
+    if errors:
+        console.print(format_error(
+            "Missing or invalid environment configuration:\n  " + "\n  ".join(errors),
+            "Configuration"
+        ))
+        raise click.Exit(1)
+
+
+def check_web3() -> None:
+    """Check that Web3 is available."""
+    if not WEB3_AVAILABLE:
+        console.print(format_error(
+            "web3 library not installed. Run: pip install web3 click rich",
+            "Dependencies"
+        ))
+        raise click.Exit(1)
 
 
 # ── ABI loading ───────────────────────────────────────────────────────────────
 
 def load_abi(name: str) -> list:
-    """Load contract ABI from the contracts/ directory by filename."""
-    abi_path = Path(__file__).parent.parent / "contracts" / f"{name}.json"
+    """Load contract ABI from the contracts directory."""
+    abi_path = Path(__file__).parent.parent / "contracts" / "abi" / f"{name}.json"
+    
     if not abi_path.exists():
-        console.print(f"[yellow]⚠ ABI not found: {abi_path}[/yellow]")
-        return []
-    try:
-        with open(abi_path) as f:
-            return json.load(f).get("abi", [])
-    except json.JSONDecodeError:
-        console.print(f"[red]Error: Invalid JSON in ABI file {name}.json[/red]")
-        return []
-    except IOError as e:
-        console.print(f"[red]Error: Cannot read ABI file: {str(e)}[/red]")
-        return []
-
-
-# ── Web3 connection ───────────────────────────────────────────────────────────
-
-def get_web3() -> Optional["Web3"]:
-    """Return a connected Web3 instance or None."""
-    if not WEB3_AVAILABLE:
-        console.print("[red]✗ web3 not installed[/red]")
-        console.print("  Install with: [yellow]pip install web3[/yellow]")
-        return None
-    
-    if not DEFAULT_RPC:
-        console.print("[red]✗ No RPC endpoint configured[/red]")
-        console.print("  Set NEURACOIN_RPC environment variable")
-        return None
+        console.print(format_error(
+            f"ABI file not found: {abi_path}\nMake sure contract ABIs are in contracts/abi/",
+            "ABI Loading"
+        ))
+        raise click.Exit(1)
     
     try:
-        w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
-        if not w3.is_connected():
-            console.print(f"[red]✗ Cannot connect to RPC endpoint[/red]")
-            console.print(f"  Endpoint: {DEFAULT_RPC}")
-            return None
-        return w3
-    except Exception as e:
-        console.print(f"[red]✗ Web3 connection error: {str(e)}[/red]")
-        return None
-
-
-def check_config() -> bool:
-    """Verify required environment variables are set."""
-    required = {
-        "NEURACOIN_RPC": DEFAULT_RPC,
-        "NRC_TOKEN_ADDRESS": NRC_ADDRESS,
-        "JOB_REGISTRY_ADDR": JOB_REGISTRY,
-    }
-    
-    missing = [name for name, value in required.items() if not value]
-    
-    if missing:
-        console.print("[yellow]⚠ Missing configuration:[/yellow]")
-        for var in missing:
-            console.print(f"  - {var}")
-        console.print("[dim]Set these environment variables and try again[/dim]")
-        return False
-    
-    return True
-
-
-# ── CLI root ──────────────────────────────────────────────────────────────────
-
-@click.group()
-@click.version_option("0.1.0", prog_name="neuracoin")
-def cli():
-    """NeuraCoin Protocol CLI — Decentralized AI Compute Network"""
-    pass
-
-
-# ── Status ────────────────────────────────────────────────────────────────────
-
-@cli.command()
-def status():
-    """Show protocol status and network info."""
-    console.print("\n[bold cyan]NeuraCoin Protocol Status[/bold cyan]")
-    console.print("─" * 50)
-
-    w3 = get_web3()
-    if w3:
-        try:
-            block = w3.eth.get_block('latest')
-            console.print(f"[green]✓ Connected[/green]  RPC: {DEFAULT_RPC}")
-            console.print(f"  Latest block:    {block['number']:,}")
-            console.print(f"  Chain ID:        {w3.eth.chain_id}")
-        except Exception as e:
-            console.print(f"[yellow]⚠ Cannot fetch block info: {str(e)}[/yellow]")
-    else:
-        console.print("[yellow]⚠ Running in offline mode[/yellow]")
-
-    console.print(f"  Token:           NRC ({NRC_ADDRESS or '[dim]not configured[/dim]'})")
-    console.print(f"  Job Registry:    {JOB_REGISTRY or '[dim]not configured[/dim]'}")
-    console.print()
-
-
-# ── Wallet ────────────────────────────────────────────────────────────────────
-
-@cli.group()
-def wallet():
-    """Wallet operations (balance, send, stake)."""
-    pass
-
-
-@wallet.command()
-@click
+        with open(abi_path, 'r') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
