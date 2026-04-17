@@ -86,151 +86,151 @@ See [Provider Setup Guide](./provider-setup.md) for detailed instructions.
 
 ### Can I run multiple GPUs?
 
-Yes. You can register multiple GPUs under one account and the daemon will load-balance jobs across them automatically.
+Yes. You can register multiple GPUs under one account and the daemon will load-balance jobs across them. Each GPU is tracked independently for earnings and performance metrics.
 
-### What happens if my job fails or times out?
+### How do I withdraw my earnings?
 
-- **Failed jobs**: Your GPU receives a small penalty, no payment
-- **Timeouts**: Job is reassigned to another provider after 5 minutes
-- **Disputes**: Resolved through staking mechanism and on-chain verification
+```bash
+# Check your balance
+neuracoin-provider balance
 
-### Do I need to stake tokens?
+# Withdraw to your wallet
+neuracoin-provider withdraw --amount 100 --wallet 0x...
 
-Yes, providers must stake 100 NRC to register. This ensures reliability and prevents spam. Your stake is returned when you deregister.
+# Earnings are transferred directly to your Ethereum wallet address
+```
+
+Withdrawals are processed within 24 hours via smart contract settlement.
+
+### What happens if a job fails?
+
+- **Provider-side failures** (hardware crash, disconnect): Job is reassigned, you receive partial payment (if work was completed)
+- **Invalid results**: Smart contract verification detects errors; you don't receive payment and job is reassigned
+- **Network issues**: Automatic reconnection with up to 5-minute grace period before reassignment
+
+### Is there a minimum uptime requirement?
+
+Providers should maintain **80%+ availability** per week. Consistent downtime may result in lower job prioritization.
 
 ---
 
 ## For Job Requesters
 
-### How do I submit an AI job?
-
-1. **Deploy the NeuraCoin requester library** in your application
-2. **Define job parameters** (model, input data, hardware requirements)
-3. **Set your budget** in NRC tokens
-4. **Submit the job** to the network
-5. **Retrieve results** once completed
-
-### Example: Running Inference
+### How do I submit a job?
 
 ```python
-from neuracoin import NeuraCoinClient
-from neuracoin.models import InferenceJob
+from neuracoin import JobClient
 
-# Initialize client
-client = NeuraCoinClient(api_key="your_api_key")
+client = JobClient(api_key="your_api_key")
 
-# Define the job
-job = InferenceJob(
-    model_name="meta-llama/Llama-2-7b",
-    prompt="What is artificial intelligence?",
-    max_tokens=256,
-    temperature=0.7,
-    min_gpu_memory_gb=8,
-    max_price_per_token=0.001  # in NRC
+job = client.submit_job(
+    model="meta-llama/Llama-2-7b",
+    task_type="inference",
+    input_data={"prompt": "What is AI?"},
+    gpu_requirement={"min_vram_gb": 8, "gpu_type": "A100"},
+    budget_nrc=10.0,
+    timeout_seconds=3600
 )
 
-# Submit job
-job_id = client.submit_job(job)
-
-# Poll for results
-result = client.wait_for_result(job_id, timeout=300)
-
-print(f"Generated text: {result.output}")
-print(f"Cost: {result.cost_nrc} NRC")
+print(f"Job ID: {job.id}")
+print(f"Status: {job.status}")
 ```
 
-### Example: Fine-tuning a Model
+See [Job Submission Guide](./job-submission.md) for detailed examples.
 
-```python
-from neuracoin import NeuraCoinClient
-from neuracoin.models import FineTuneJob
+### What formats do you support?
 
-client = NeuraCoinClient()
+**Models:**
+- Hugging Face Hub models (GGUF, SafeTensors, PyTorch)
+- ONNX models
+- Custom Docker containers with inference servers
 
-job = FineTuneJob(
-    base_model="mistralai/Mistral-7B",
-    training_data_url="s3://my-bucket/training-data.jsonl",
-    num_epochs=3,
-    learning_rate=2e-5,
-    batch_size=4,
-    min_gpu_memory_gb=16,
-    budget_nrc=50.0
-)
-
-job_id = client.submit_job(job)
-events = client.stream_job_logs(job_id)
-
-for event in events:
-    print(f"Epoch {event.epoch}: Loss = {event.loss}")
-
-fine_tuned_model = client.download_model(job_id)
-```
+**Input/Output:**
+- JSON
+- CSV
+- Images (PNG, JPEG, WebP)
+- Text files
+- Parquet (for batch processing)
 
 ### How much does it cost?
 
-Pricing is **dynamic and determined by the market**:
-- Base cost scales with GPU compute required
-- Time-based: typical inference ~$0.0001-0.001 per token
-- Storage-based: model weights cached at $0.01/GB/day
-- Batch jobs receive discounts (20-40%)
+Pricing is **dynamic** based on:
+- GPU tier required
+- Model size
+- Job duration
+- Network demand
 
-You set a **max budget** before submission; jobs won't exceed this amount.
+**Typical costs:**
+- Llama-2-7b inference: 0.01-0.05 NRC per request
+- Fine-tuning job: 5-50 NRC (varies by dataset size)
+- Batch processing: 0.1-1 NRC per item
 
-### Can I use custom models?
+You set a budget ceiling; jobs won't execute if costs exceed it.
 
-Yes. You can:
-- Upload your own model to IPFS or S3
-- Reference it by URL or hash in your job submission
-- Providers download it automatically before execution
+### How do I monitor my job?
 
-### What data privacy protections exist?
+```python
+# Check job status
+job = client.get_job(job_id="abc123")
+print(f"Status: {job.status}")  # pending, running, completed, failed
+print(f"Progress: {job.progress}%")
+print(f"Cost so far: {job.cost_nrc} NRC")
 
-- **Input data** is never stored after job completion
-- **Encrypted channels** (TLS 1.3) for all data transmission
-- **Zero-knowledge proofs** optionally verify job execution without revealing inputs
-- Providers never see unencrypted data without explicit consent
+# Stream results in real-time
+for result in client.stream_results(job_id="abc123"):
+    print(result)
+```
 
-### How long do jobs take?
+### What SLAs do you offer?
 
-Typical latencies:
-- **Inference**: 5-30 seconds (network + compute)
-- **Fine-tuning**: 30 minutes - 4 hours
-- **Training**: 1-7 days (depending on dataset/model)
+- **99% uptime** for job completion (averaged monthly)
+- **10-minute average job startup** time
+- **24-hour maximum job duration** (longer custom arrangements available)
+- No SLA penalty guarantee; results are best-effort
 
 ---
 
-## Tokenomics & Security
+## Token & Economics
 
-### What is the NRC token supply?
+### What is NRC?
 
-- **Total Supply**: 1,000,000,000 NRC
-- **Distribution**:
-  - 40% Community Rewards (provider/requester incentives)
-  - 20% Core Development
-  - 15% Early Backers
-  - 15% Foundation Treasury
-  - 10% Strategic Partners
+NRC is an ERC-20 token on Ethereum that serves as the settlement and incentive mechanism for the NeuraCoin protocol. It represents computing value and can be traded on decentralized exchanges.
 
-### How do I buy NRC tokens?
+### Where can I buy NRC?
 
-Available on:
-- **Uniswap** (Ethereum mainnet)
-- **Kraken** (centralized exchange)
-- **Curve** (for liquidity pools)
+- **Uniswap** (primary DEX): [NRC/USDC pool](https://uniswap.org)
+- **Aave**: Lending protocol integration
+- Centralized exchanges (coming soon)
 
-Minimum purchase: 0.01 NRC
+### How many NRC tokens exist?
 
-### Is NeuraCoin audited?
+- **Total supply**: 1,000,000,000 NRC
+- **Distribution:**
+  - 40% to providers (mining rewards)
+  - 30% to requesters (early adopter incentives)
+  - 20% to team & development
+  - 10% to ecosystem & partnerships
 
-Yes. Smart contracts audited by:
-- Trail of Bits (May 2024)
-- OpenZeppelin (Q4 2024)
+### Is there token inflation?
 
-Full audit reports available at [neuracoin.io/security](https://neuracoin.io/security)
+Yes, gradually. Tokens are emitted at a decreasing rate over 10 years to incentivize early participants.
 
-### What about slashing penalties?
+---
 
-Providers risk losing stake if they:
-- Produce incorrect outputs (detected via random re-execution)
-- Go offline during job execution
-- Lie about GPU
+## Security & Trust
+
+### How do I know jobs are executed correctly?
+
+1. **Cryptographic proofs**: Providers submit computation proofs
+2. **Spot verification**: Random jobs are re-executed by validators
+3. **Smart contract arbitration**: Disputes resolved on-chain
+4. **Reputation system**: Providers/requesters rated by counterparties
+
+### Is my data private?
+
+- Jobs execute in isolated Docker containers on providers' hardware
+- Data is encrypted in transit (TLS 1.3)
+- **Important**: NeuraCoin does not guarantee data deletion; use sensitive data at your own risk
+- For sensitive workloads, consider private deployment options
+
+### What happens in case of disputes?
