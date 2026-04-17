@@ -20,7 +20,7 @@ import os
 import json
 import click
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Dict
 from decimal import Decimal
 
 try:
@@ -55,43 +55,51 @@ def format_error(message: str, context: Optional[str] = None) -> str:
     return f"[red]Error:[/red] {message}"
 
 
+def print_error(message: str, context: Optional[str] = None, exit_code: int = 1) -> None:
+    """Print formatted error and exit."""
+    console.print(format_error(message, context))
+    raise SystemExit(exit_code)
+
+
 # ── Validators ────────────────────────────────────────────────────────────────
 
 def validate_address(ctx, param, value: str) -> str:
     """Validate Ethereum address format."""
     if not value:
         raise click.BadParameter("Address cannot be empty")
-    
+
     value = value.strip()
-    
+
     if not value.startswith("0x"):
         raise click.BadParameter(
             f"Address must start with '0x', got: {value[:10]}..."
         )
-    
+
     if len(value) != 42:
         raise click.BadParameter(
             f"Invalid address length: expected 42 characters, got {len(value)}"
         )
-    
+
     try:
         int(value, 16)
     except ValueError:
         raise click.BadParameter(
             "Address contains invalid hexadecimal characters"
         )
-    
-    return value
+
+    return Web3.to_checksum_address(value)
 
 
-def validate_positive_number(ctx, param, value) -> float:
+def validate_positive_number(ctx, param, value: Any) -> float:
     """Validate that a number is positive."""
     if value is None:
         return value
-    
+
     if isinstance(value, str):
         value = value.strip()
-    
+        if not value:
+            raise click.BadParameter("Number cannot be empty")
+
     try:
         num = float(value)
         if num <= 0:
@@ -105,128 +113,132 @@ def validate_positive_number(ctx, param, value) -> float:
         )
 
 
-def validate_json_file(ctx, param, value: str) -> dict:
+def validate_json_file(ctx, param, value: Optional[str]) -> Dict[str, Any]:
     """Validate and load JSON file."""
     if not value:
-        raise click.BadParameter("File path cannot be empty")
+        raise click.BadParameter("JSON file path cannot be empty")
 
-    value = value.strip()
-    path = Path(value).resolve()
-    
-    if not path.exists():
+    file_path = Path(value).resolve()
+
+    if not file_path.exists():
         raise click.BadParameter(
-            f"File not found: {path}\nPlease provide a valid path to an existing file"
+            f"File not found: {file_path}\n"
+            f"Please provide a valid path to a JSON file"
         )
-    
-    if not path.is_file():
+
+    if not file_path.is_file():
         raise click.BadParameter(
-            f"Path is not a file: {path}"
+            f"Path is not a file: {file_path}"
         )
-    
-    if path.suffix.lower() != ".json":
+
+    if file_path.suffix.lower() != ".json":
         raise click.BadParameter(
-            f"File must be JSON format (*.json), got: {path.suffix}"
+            f"File must be JSON format (.json), got: {file_path.suffix}"
         )
 
     try:
-        with open(path, 'r') as f:
+        with open(file_path, "r") as f:
             data = json.load(f)
-        
-        if not isinstance(data, dict):
-            raise click.BadParameter(
-                f"JSON file must contain an object, got: {type(data).__name__}"
-            )
-        
         return data
     except json.JSONDecodeError as e:
         raise click.BadParameter(
-            f"Invalid JSON in {path.name}:\n  Line {e.lineno}, Column {e.colno}: {e.msg}"
+            f"Invalid JSON in file: {e.msg} at line {e.lineno}, column {e.colno}"
         )
     except IOError as e:
         raise click.BadParameter(
-            f"Cannot read file {path}: {str(e)}"
+            f"Failed to read file: {e}"
         )
 
 
-def validate_job_spec(spec: dict) -> None:
+def validate_job_spec(spec: Dict[str, Any]) -> None:
     """Validate job specification structure."""
-    required_fields = ["model", "input_data", "timeout"]
-    missing = [f for f in required_fields if f not in spec]
-    
-    if missing:
-        raise click.BadParameter(
-            f"Job spec missing required fields: {', '.join(missing)}"
-        )
-    
-    if not isinstance(spec.get("timeout"), (int, float)) or spec["timeout"] <= 0:
-        raise click.BadParameter(
-            "Job spec 'timeout' must be a positive number (seconds)"
-        )
+    required_fields = ["model", "input_data", "hardware_requirements"]
+
+    for field in required_fields:
+        if field not in spec:
+            raise ValidationError(
+                f"Job spec missing required field: '{field}'\n"
+                f"Required fields: {', '.join(required_fields)}"
+            )
+
+    if not isinstance(spec.get("model"), str) or not spec["model"]:
+        raise ValidationError("'model' must be a non-empty string")
+
+    if not isinstance(spec.get("hardware_requirements"), dict):
+        raise ValidationError("'hardware_requirements' must be an object")
+
+    hw_req = spec["hardware_requirements"]
+    if "gpu_memory_gb" in hw_req:
+        try:
+            gpu_mem = float(hw_req["gpu_memory_gb"])
+            if gpu_mem <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ValidationError("'gpu_memory_gb' must be a positive number")
 
 
-def validate_stake_amount(amount: float, min_stake: float = 1.0) -> float:
-    """Validate stake amount."""
-    if amount < min_stake:
-        raise click.BadParameter(
-            f"Stake amount must be at least {min_stake} NRC, got: {amount}"
-        )
-    
-    if amount > 1_000_000:
-        raise click.BadParameter(
-            f"Stake amount is unusually high: {amount} NRC (max recommended: 1,000,000)"
-        )
-    
-    return amount
-
-
-# ── Config Validators ─────────────────────────────────────────────────────────
-
-def check_environment() -> None:
-    """Check that required environment variables are set."""
-    errors = []
-    
+def validate_environment() -> None:
+    """Validate that required environment variables are set."""
     if not NRC_ADDRESS:
-        errors.append("NRC_TOKEN_ADDRESS not set")
-    elif not NRC_ADDRESS.startswith("0x"):
-        errors.append("NRC_TOKEN_ADDRESS is invalid (must start with '0x')")
-    
+        print_error(
+            "NRC_TOKEN_ADDRESS not set",
+            "Environment",
+            exit_code=1
+        )
+
     if not JOB_REGISTRY:
-        errors.append("JOB_REGISTRY_ADDR not set")
-    elif not JOB_REGISTRY.startswith("0x"):
-        errors.append("JOB_REGISTRY_ADDR is invalid (must start with '0x')")
-    
-    if errors:
-        console.print(format_error(
-            "Missing or invalid environment configuration:\n  " + "\n  ".join(errors),
-            "Configuration"
-        ))
-        raise click.Exit(1)
+        print_error(
+            "JOB_REGISTRY_ADDR not set",
+            "Environment",
+            exit_code=1
+        )
 
-
-def check_web3() -> None:
-    """Check that Web3 is available."""
     if not WEB3_AVAILABLE:
-        console.print(format_error(
-            "web3 library not installed. Run: pip install web3 click rich",
-            "Dependencies"
-        ))
-        raise click.Exit(1)
+        print_error(
+            "Required packages not installed: web3, click, rich",
+            "Dependencies",
+            exit_code=1
+        )
 
 
-# ── ABI loading ───────────────────────────────────────────────────────────────
+# ── CLI Commands ──────────────────────────────────────────────────────────────
 
-def load_abi(name: str) -> list:
-    """Load contract ABI from the contracts directory."""
-    abi_path = Path(__file__).parent.parent / "contracts" / "abi" / f"{name}.json"
+@click.group()
+@click.version_option(version="0.1.0")
+def cli() -> None:
+    """
+    NeuraCoin Protocol CLI
     
-    if not abi_path.exists():
-        console.print(format_error(
-            f"ABI file not found: {abi_path}\nMake sure contract ABIs are in contracts/abi/",
-            "ABI Loading"
-        ))
-        raise click.Exit(1)
-    
+    Manage GPU compute sharing and NRC token operations.
+    """
+    pass
+
+
+@cli.command()
+def status() -> None:
+    """Check NeuraCoin network status."""
     try:
-        with open(abi_path, 'r') as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
+        validate_environment()
+
+        if not WEB3_AVAILABLE:
+            print_error("Web3 not available", "Network")
+
+        w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
+
+        if not w3.is_connected():
+            print_error(
+                f"Cannot connect to RPC endpoint: {DEFAULT_RPC}",
+                "Connection"
+            )
+
+        block = w3.eth.block_number
+        gas_price = w3.eth.gas_price
+
+        table = Table(title="NeuraCoin Status")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green")
+
+        table.add_row("Network", "Connected")
+        table.add_row("Block Number", str(block))
+        table.add_row("Gas Price (Wei)", str(gas_price))
+        table.add_row("RPC Endpoint", DEFAULT_RPC)
