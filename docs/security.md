@@ -12,44 +12,57 @@ All AI jobs execute within isolated Docker containers with restricted capabiliti
 
 ```yaml
 SecurityContext:
-  - RunAsNonRoot: true
-  - ReadOnlyRootFilesystem: true
-  - AllowPrivilegeEscalation: false
-  - Capabilities:
-      Drop:
-        - ALL
-      Add:
-        - NET_BIND_SERVICE
-  - SeccompProfile:
-      Type: RuntimeDefault
+  RunAsNonRoot: true
+  ReadOnlyRootFilesystem: true
+  AllowPrivilegeEscalation: false
+  Capabilities:
+    Drop:
+      - ALL
+    Add:
+      - NET_BIND_SERVICE
+  SeccompProfile:
+    Type: RuntimeDefault
+  SELinuxOptions:
+    Level: "s0:c123,c456"
 
 ResourceLimits:
-  - Memory: 16Gi max
-  - CPU: 8 cores max
-  - Disk: 100Gi ephemeral
-  - NetworkPolicy: Egress to trusted nodes only
+  Memory: 16Gi
+  CPU: 8
+  Disk: 100Gi
+  EphemeralStorage: 50Gi
+  NetworkPolicy: Egress to trusted nodes only
+  ProcessLimit: 256
 ```
 
 ### 1.2 File System Isolation
 
-- **Read-only layers**: OS and libraries immutable
-- **Ephemeral scratch**: `/tmp` and `/home/worker` isolated per job
-- **Network segregation**: Internal network only, no direct internet access
-- **Volume mounts**: Restricted to job-specific input/output directories
+- **Read-only layers**: OS and application libraries mounted immutable via overlay2
+- **Ephemeral scratch**: `/tmp` and `/home/worker` created fresh per job, cleaned on termination
+- **Network segregation**: Internal network only via network namespacing, no direct internet access
+- **Volume mounts**: Restricted to job-specific `/input` and `/output` directories with noexec flag
+- **Device access**: No access to `/dev/mem`, `/dev/kmem`, or GPU device files (passed explicitly)
+
+### 1.3 Runtime Monitoring
+
+- **Seccomp profiles**: Block dangerous syscalls (ptrace, execve, mount, setuid)
+- **AppArmor/SELinux**: Enforce mandatory access control policies
+- **CRI-O containerd**: Prevent privilege escalation and kernel module loading
+- **Resource enforcement**: cgroups v2 with strict memory/CPU throttling and OOM killer protection
 
 ## 2. Smart Contract Slashing
 
 ### 2.1 Slashing Events
 
-GPU contributors face penalties for:
+GPU contributors face penalties for protocol violations:
 
-| Violation | Slash Amount | Conditions |
-|-----------|-------------|-----------|
-| Job timeout/crash | 2% | Job exceeds agreed time by >20% |
-| Memory violation | 5% | Memory usage exceeds requested by >10% |
-| Output mismatch | 10% | Verifiable difference from reference run |
-| Malicious code injection | 100% | Detected exploit/backdoor attempt |
-| Missed heartbeat | 1% per 5min | No health signal for 15+ minutes |
+| Violation | Slash Amount | Conditions | Appeal Window |
+|-----------|-------------|-----------|----------------|
+| Job timeout/crash | 2% | Job exceeds agreed time by >20% | 7 days |
+| Memory violation | 5% | Memory usage exceeds requested by >10% | 7 days |
+| Output mismatch | 10% | Verifiable difference from reference run | 14 days |
+| Missed heartbeat | 1% per occurrence | No health signal for 15+ minutes | 3 days |
+| Malicious code injection | 100% | Detected exploit/backdoor/rootkit | 30 days |
+| Data exfiltration | 50% | Unauthorized data access/copy detected | 14 days |
 
 ### 2.2 Smart Contract Implementation
 
@@ -60,20 +73,21 @@ pragma solidity 0.8.20;
 interface ISlashingManager {
     event SlashingEvent(
         address indexed contributor,
-        uint256 amount,
+        uint256 jobId,
+        uint256 slashAmount,
         string reason,
         uint256 timestamp
     );
-    
+
     event AppealSubmitted(
         address indexed contributor,
         uint256 jobId,
-        bytes32 evidence
+        bytes32 evidenceHash
     );
-    
+
     event AppealResolved(
         uint256 indexed jobId,
-        bool slashingConfirmed,
+        bool slashConfirmed,
         address resolver
     );
 }
@@ -81,6 +95,7 @@ interface ISlashingManager {
 contract SlashingManager is ISlashingManager {
     struct SlashRecord {
         address contributor;
+        uint256 jobId;
         uint256 stakedAmount;
         uint256 slashAmount;
         string reason;
@@ -88,162 +103,103 @@ contract SlashingManager is ISlashingManager {
         bool appealed;
         bytes32 evidenceHash;
         uint256 resolutionTime;
+        bool resolved;
     }
-    
+
     mapping(uint256 => SlashRecord) public slashRecords;
     mapping(address => uint256) public totalSlashed;
-    
+    mapping(address => uint256) public stakedAmount;
+
     uint256 public constant APPEAL_WINDOW = 7 days;
-    uint256 public constant MIN_SLASH_AMOUNT = 1e16; // 0.01 NRC
-    
+    uint256 public constant MIN_SLASH_AMOUNT = 1e16;
+    uint256 public slashCounter;
+
     address public governance;
-    
-    constructor(address _governance) {
+    address public verificationOracle;
+
+    event StakeDeposited(address indexed contributor, uint256 amount);
+    event StakeWithdrawn(address indexed contributor, uint256 amount);
+
+    constructor(address _governance, address _verificationOracle) {
         governance = _governance;
+        verificationOracle = _verificationOracle;
     }
-    
+
     /// @notice Execute slashing for a contributor
     /// @param _contributor Address of GPU provider
     /// @param _jobId Associated job identifier
-    /// @param _slashPercent Percentage of stake to slash (1-100)
-    /// @param _reason Human-readable reason code
-    function executeSlash(
+    /// @param _slashPercent Percentage of stake to slash (0-100)
+    /// @param _reason Description of violation
+    function slash(
         address _contributor,
         uint256 _jobId,
-        uint256 _slashPercent,
-        string memory _reason
-    ) external onlyValidator returns (bool) {
-        require(_slashPercent > 0 && _slashPercent <= 100, "Invalid slash %");
+        uint8 _slashPercent,
+        string calldata _reason
+    ) external onlyGovernance {
         require(_contributor != address(0), "Invalid contributor");
-        
-        uint256 stakedAmount = getContributorStake(_contributor);
-        uint256 slashAmount = (stakedAmount * _slashPercent) / 100;
-        
-        require(slashAmount >= MIN_SLASH_AMOUNT, "Slash too small");
-        
-        SlashRecord storage record = slashRecords[_jobId];
+        require(_slashPercent > 0 && _slashPercent <= 100, "Invalid slash percent");
+        require(stakedAmount[_contributor] > 0, "No stake found");
+
+        uint256 slashAmount = (stakedAmount[_contributor] * _slashPercent) / 100;
+        require(slashAmount >= MIN_SLASH_AMOUNT, "Slash amount too small");
+
+        SlashRecord storage record = slashRecords[slashCounter];
         record.contributor = _contributor;
-        record.stakedAmount = stakedAmount;
+        record.jobId = _jobId;
+        record.stakedAmount = stakedAmount[_contributor];
         record.slashAmount = slashAmount;
         record.reason = _reason;
         record.timestamp = block.timestamp;
         record.appealed = false;
-        
+        record.resolved = false;
+
+        stakedAmount[_contributor] -= slashAmount;
         totalSlashed[_contributor] += slashAmount;
-        
-        // Transfer slashed amount to treasury
-        _transferToTreasury(slashAmount);
-        
-        emit SlashingEvent(_contributor, slashAmount, _reason, block.timestamp);
-        return true;
+
+        emit SlashingEvent(_contributor, _jobId, slashAmount, _reason, block.timestamp);
+        slashCounter++;
     }
-    
-    /// @notice Appeal a slashing decision within window
-    /// @param _jobId Job associated with slash
+
+    /// @notice Submit appeal for slashing decision
+    /// @param _slashId ID of slash record
     /// @param _evidenceHash IPFS hash of appeal evidence
-    function submitAppeal(
-        uint256 _jobId,
-        bytes32 _evidenceHash
-    ) external {
-        SlashRecord storage record = slashRecords[_jobId];
-        require(record.timestamp != 0, "Slash not found");
+    function submitAppeal(uint256 _slashId, bytes32 _evidenceHash) external {
+        SlashRecord storage record = slashRecords[_slashId];
+        require(msg.sender == record.contributor, "Only contributor can appeal");
+        require(!record.appealed, "Appeal already submitted");
         require(
             block.timestamp <= record.timestamp + APPEAL_WINDOW,
             "Appeal window closed"
         );
-        require(!record.appealed, "Already appealed");
-        
+
         record.appealed = true;
         record.evidenceHash = _evidenceHash;
-        
-        emit AppealSubmitted(msg.sender, _jobId, _evidenceHash);
+
+        emit AppealSubmitted(msg.sender, record.jobId, _evidenceHash);
     }
-    
-    /// @notice Resolve an appeal (governance only)
-    /// @param _jobId Job identifier
-    /// @param _confirm True to keep slash, false to reverse
-    function resolveAppeal(
-        uint256 _jobId,
-        bool _confirm
-    ) external onlyGovernance {
-        SlashRecord storage record = slashRecords[_jobId];
-        require(record.appealed, "No appeal on record");
-        require(record.resolutionTime == 0, "Already resolved");
-        
+
+    /// @notice Resolve appeal (called by governance/oracle)
+    /// @param _slashId ID of slash record
+    /// @param _slashConfirmed Whether to uphold the slash
+    function resolveAppeal(uint256 _slashId, bool _slashConfirmed) external {
+        require(msg.sender == governance || msg.sender == verificationOracle, "Unauthorized");
+        SlashRecord storage record = slashRecords[_slashId];
+        require(record.appealed, "No appeal submitted");
+        require(!record.resolved, "Already resolved");
+
+        record.resolved = true;
         record.resolutionTime = block.timestamp;
-        
-        if (!_confirm) {
-            // Reverse the slash
+
+        if (!_slashConfirmed) {
+            stakedAmount[record.contributor] += record.slashAmount;
             totalSlashed[record.contributor] -= record.slashAmount;
-            _refundFromTreasury(record.contributor, record.slashAmount);
         }
-        
-        emit AppealResolved(_jobId, _confirm, msg.sender);
+
+        emit AppealResolved(record.jobId, _slashConfirmed, msg.sender);
     }
-    
-    function getContributorStake(address _contributor) 
-        public 
-        view 
-        returns (uint256) 
-    {
-        // Implementation depends on staking contract
-        // This is a placeholder
-        return 100e18; // 100 NRC default
-    }
-    
-    function _transferToTreasury(uint256 _amount) internal {
-        // Transfer NRC to protocol treasury
-    }
-    
-    function _refundFromTreasury(address _recipient, uint256 _amount) internal {
-        // Refund NRC from treasury
-    }
-    
-    modifier onlyValidator() {
-        // Validator check
-        _;
-    }
-    
-    modifier onlyGovernance() {
-        require(msg.sender == governance, "Governance only");
-        _;
-    }
-}
-```
 
-## 3. Job Verification & Validation
-
-### 3.1 Reference Execution
-
-High-value jobs trigger reference execution verification:
-
-```python
-#!/usr/bin/env python3
-"""
-Job verification engine for NeuraCoin
-"""
-
-import hashlib
-import hmac
-from dataclasses import dataclass
-from typing import Optional
-from enum import Enum
-
-class VerificationStatus(Enum):
-    PASSED = "passed"
-    FAILED = "failed"
-    INCONCLUSIVE = "inconclusive"
-
-@dataclass
-class VerificationResult:
-    job_id: str
-    status: VerificationStatus
-    output_hash: str
-    reference_hash: str
-    tolerance_met: bool
-    tolerance_percent: float
-    evidence_cid: str
-    timestamp: int
-
-class JobVerifier:
-    """Verifies
+    /// @notice Deposit stake for GPU provider
+    /// @param _amount Amount of NRC to stake
+    function depositStake(uint256 _amount) external {
+        require(_amount > 0, "Amount must be positive");
+        stakedAmount[msg.sender] +=
