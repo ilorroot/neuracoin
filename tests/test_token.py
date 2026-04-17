@@ -4,188 +4,192 @@ Pytest tests for NeuraCoin (NRC) token mint, transfer, and burn logic.
 """
 
 import pytest
-from anthropic import Anthropic
-
-# Initialize Anthropic client for multi-turn conversation
-client = Anthropic()
-conversation_history = []
+from unittest.mock import Mock, MagicMock, patch
+from decimal import Decimal
+from typing import Dict, Tuple
 
 
-def chat(user_message: str) -> str:
-    """Send a message to Claude and get a response, maintaining conversation history."""
-    conversation_history.append({
-        "role": "user",
-        "content": user_message
-    })
-    
-    response = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=8096,
-        system="""You are a senior blockchain developer writing pytest tests for a Solidity ERC20 token contract.
-        You understand token mechanics, security considerations, and testing best practices.
-        When asked to generate test code, provide Python code using pytest and web3.py libraries.
-        The code should be complete, working, and include proper setup/teardown.""",
-        messages=conversation_history
-    )
-    
-    assistant_message = response.content[0].text
-    conversation_history.append({
-        "role": "assistant",
-        "content": assistant_message
-    })
-    
-    return assistant_message
+class MockNRCToken:
+    """Mock ERC20 token contract for testing NeuraCoin mechanics."""
+
+    def __init__(self, initial_supply: int = 0):
+        self.balances: Dict[str, int] = {}
+        self.allowances: Dict[Tuple[str, str], int] = {}
+        self.total_supply: int = initial_supply
+        self.burnable: bool = True
+
+    def mint(self, account: str, amount: int) -> bool:
+        """Mint tokens to an account."""
+        if amount <= 0:
+            raise ValueError("Mint amount must be positive")
+        self.balances[account] = self.balances.get(account, 0) + amount
+        self.total_supply += amount
+        return True
+
+    def transfer(self, from_account: str, to_account: str, amount: int) -> bool:
+        """Transfer tokens between accounts."""
+        if amount <= 0:
+            raise ValueError("Transfer amount must be positive")
+        if self.balances.get(from_account, 0) < amount:
+            raise ValueError("Insufficient balance")
+        self.balances[from_account] -= amount
+        self.balances[to_account] = self.balances.get(to_account, 0) + amount
+        return True
+
+    def burn(self, account: str, amount: int) -> bool:
+        """Burn tokens from an account."""
+        if not self.burnable:
+            raise ValueError("Burning is disabled")
+        if amount <= 0:
+            raise ValueError("Burn amount must be positive")
+        if self.balances.get(account, 0) < amount:
+            raise ValueError("Insufficient balance to burn")
+        self.balances[account] -= amount
+        self.total_supply -= amount
+        return True
+
+    def approve(self, owner: str, spender: str, amount: int) -> bool:
+        """Approve spender to transfer tokens on behalf of owner."""
+        if amount < 0:
+            raise ValueError("Approval amount cannot be negative")
+        self.allowances[(owner, spender)] = amount
+        return True
+
+    def transfer_from(self, owner: str, spender: str, to_account: str, amount: int) -> bool:
+        """Transfer tokens using allowance."""
+        if amount <= 0:
+            raise ValueError("Transfer amount must be positive")
+        allowance = self.allowances.get((owner, spender), 0)
+        if allowance < amount:
+            raise ValueError("Insufficient allowance")
+        if self.balances.get(owner, 0) < amount:
+            raise ValueError("Insufficient balance")
+        self.balances[owner] -= amount
+        self.balances[to_account] = self.balances.get(to_account, 0) + amount
+        self.allowances[(owner, spender)] -= amount
+        return True
+
+    def balance_of(self, account: str) -> int:
+        """Get balance of an account."""
+        return self.balances.get(account, 0)
 
 
-def test_basic_mint_functionality():
-    """Test basic token minting functionality."""
-    response = chat("""
-    Generate a pytest test function called test_mint_tokens that:
-    1. Sets up a mock ERC20 token contract
-    2. Mints 1000 tokens to an account
-    3. Verifies the balance is correct
-    4. Checks total supply increased
-    
-    Use simple assertions and return just the test function code without explanations.
-    Make it work with pytest directly.
-    """)
-    
-    # Extract and execute the test
-    assert "def test_mint_tokens" in response
-    assert "assert" in response
-    print("✓ Basic mint test generated")
+class TestNRCTokenMint:
+    """Test cases for NRC token minting functionality."""
+
+    @pytest.fixture
+    def token(self) -> MockNRCToken:
+        """Fixture to provide a fresh token instance."""
+        return MockNRCToken()
+
+    def test_mint_tokens_basic(self, token: MockNRCToken):
+        """Test basic token minting to an account."""
+        account = "0x1234567890abcdef"
+        amount = 1000
+
+        result = token.mint(account, amount)
+
+        assert result is True
+        assert token.balance_of(account) == amount
+        assert token.total_supply == amount
+
+    def test_mint_multiple_accounts(self, token: MockNRCToken):
+        """Test minting tokens to multiple accounts."""
+        account_a = "0xaaaa"
+        account_b = "0xbbbb"
+        amount = 500
+
+        token.mint(account_a, amount)
+        token.mint(account_b, amount)
+
+        assert token.balance_of(account_a) == amount
+        assert token.balance_of(account_b) == amount
+        assert token.total_supply == amount * 2
+
+    def test_mint_accumulation(self, token: MockNRCToken):
+        """Test minting multiple times to the same account."""
+        account = "0x1111"
+
+        token.mint(account, 100)
+        token.mint(account, 200)
+        token.mint(account, 300)
+
+        assert token.balance_of(account) == 600
+        assert token.total_supply == 600
+
+    def test_mint_invalid_amount(self, token: MockNRCToken):
+        """Test that minting with invalid amounts raises error."""
+        account = "0x1234"
+
+        with pytest.raises(ValueError, match="Mint amount must be positive"):
+            token.mint(account, 0)
+
+        with pytest.raises(ValueError, match="Mint amount must be positive"):
+            token.mint(account, -100)
+
+    def test_mint_large_amount(self, token: MockNRCToken):
+        """Test minting very large amounts."""
+        account = "0xbeef"
+        large_amount = 10**18  # 1 billion tokens with 18 decimals
+
+        token.mint(account, large_amount)
+
+        assert token.balance_of(account) == large_amount
+        assert token.total_supply == large_amount
 
 
-def test_transfer_functionality():
-    """Test token transfer functionality."""
-    response = chat("""
-    Now generate a test function called test_transfer_tokens that:
-    1. Sets up a mock ERC20 token
-    2. Mints tokens to account A
-    3. Transfers some tokens from A to B
-    4. Verifies balances on both accounts
-    5. Tests transfer with insufficient balance
-    
-    Keep the same code style and return just the function.
-    """)
-    
-    assert "def test_transfer_tokens" in response
-    assert "transfer" in response.lower()
-    print("✓ Transfer test generated")
+class TestNRCTokenTransfer:
+    """Test cases for NRC token transfer functionality."""
 
+    @pytest.fixture
+    def token_with_balance(self) -> MockNRCToken:
+        """Fixture providing a token with pre-minted balances."""
+        token = MockNRCToken()
+        token.mint("0xaccount_a", 1000)
+        token.mint("0xaccount_b", 500)
+        return token
 
-def test_burn_functionality():
-    """Test token burn functionality."""
-    response = chat("""
-    Generate a test function called test_burn_tokens that:
-    1. Sets up a mock ERC20 token with burn capability
-    2. Mints tokens to an account
-    3. Burns some tokens
-    4. Verifies balance decreased
-    5. Verifies total supply decreased
-    
-    Use the same pattern and return just the function code.
-    """)
-    
-    assert "def test_burn_tokens" in response
-    assert "burn" in response.lower()
-    print("✓ Burn test generated")
+    def test_transfer_tokens_basic(self, token_with_balance: MockNRCToken):
+        """Test basic token transfer between accounts."""
+        token = token_with_balance
+        from_account = "0xaccount_a"
+        to_account = "0xaccount_b"
+        amount = 100
 
+        initial_from_balance = token.balance_of(from_account)
+        initial_to_balance = token.balance_of(to_account)
 
-def test_approval_and_transfer_from():
-    """Test approval and transferFrom functionality."""
-    response = chat("""
-    Generate a test function called test_approval_and_transfer_from that:
-    1. Sets up a mock ERC20 token
-    2. Account A mints tokens
-    3. Account A approves Account B to spend tokens
-    4. Account B transfers tokens from A to C
-    5. Verifies all balances are correct
-    6. Tests that transferFrom fails without approval
-    
-    Return just the test function.
-    """)
-    
-    assert "def test_approval_and_transfer_from" in response
-    assert "approve" in response.lower()
-    print("✓ Approval and transferFrom test generated")
+        result = token.transfer(from_account, to_account, amount)
 
+        assert result is True
+        assert token.balance_of(from_account) == initial_from_balance - amount
+        assert token.balance_of(to_account) == initial_to_balance + amount
+        assert token.total_supply == 1500  # Total supply unchanged
 
-def test_edge_cases():
-    """Test edge cases and security considerations."""
-    response = chat("""
-    Generate a test function called test_edge_cases that tests:
-    1. Minting zero tokens
-    2. Transferring zero tokens
-    3. Burning zero tokens
-    4. Transfer to zero address (should fail)
-    5. Burn more than balance
-    6. Transfer more than balance
-    
-    Make it comprehensive and return just the function.
-    """)
-    
-    assert "def test_edge_cases" in response
-    assert "zero" in response.lower()
-    print("✓ Edge cases test generated")
+    def test_transfer_full_balance(self, token_with_balance: MockNRCToken):
+        """Test transferring entire balance."""
+        token = token_with_balance
+        from_account = "0xaccount_a"
+        to_account = "0xaccount_c"
+        amount = 1000
 
+        token.transfer(from_account, to_account, amount)
 
-def test_full_test_suite_generation():
-    """Generate a complete test suite with proper fixtures."""
-    response = chat("""
-    Now generate a complete pytest test file for the NeuraCoin (NRC) token that includes:
-    1. A pytest fixture for setting up a mock ERC20 token contract
-    2. A fixture for test accounts
-    3. Test functions for: mint, transfer, burn, approve, transferFrom
-    4. Proper setup and teardown
-    5. Use unittest.mock if needed for contract interaction
-    
-    Make it a complete, runnable test file without explanations.
-    """)
-    
-    # Verify complete test structure
-    assert "import pytest" in response or "from pytest" in response
-    assert "@pytest.fixture" in response
-    assert "def test_" in response
-    print("✓ Complete test suite generated")
+        assert token.balance_of(from_account) == 0
+        assert token.balance_of(to_account) == amount
 
+    def test_transfer_insufficient_balance(self, token_with_balance: MockNRCToken):
+        """Test that transfer with insufficient balance fails."""
+        token = token_with_balance
+        from_account = "0xaccount_a"
+        to_account = "0xaccount_b"
 
-def test_token_economics():
-    """Test token economics and supply mechanics."""
-    response = chat("""
-    Generate a test function called test_token_economics that:
-    1. Tests max supply cap if one exists
-    2. Tests that total minted + burned = supply
-    3. Verifies mint events are properly emitted
-    4. Verifies transfer events are properly emitted
-    5. Verifies burn events are properly emitted
-    
-    Return just the function code.
-    """)
-    
-    assert "def test_token_economics" in response
-    assert "emit" in response.lower() or "event" in response.lower()
-    print("✓ Token economics test generated")
+        with pytest.raises(ValueError, match="Insufficient balance"):
+            token.transfer(from_account, to_account, 2000)
 
+    def test_transfer_invalid_amount(self, token_with_balance: MockNRCToken):
+        """Test that transfer with invalid amounts raises error."""
+        token = token_with_balance
 
-def test_access_control():
-    """Test access control for privileged operations."""
-    response = chat("""
-    Generate a test function called test_access_control that:
-    1. Tests that only owner can mint tokens
-    2. Tests that any account can transfer their own tokens
-    3. Tests that unauthorized accounts cannot burn others' tokens
-    4. Tests owner-only functions are properly protected
-    5. Tests that permissions are correctly enforced
-    
-    Return just the test function.
-    """)
-    
-    assert "def test_access_control" in response
-    assert "owner" in response.lower() or "admin" in response.lower()
-    print("✓ Access control test generated")
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
-```
+        with pytest.raises(ValueError, match="Transfer amount must be positive"):
+            token.transfer("0xaccount_a", "0
