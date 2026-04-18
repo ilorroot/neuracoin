@@ -144,61 +144,77 @@
       color: var(--text);
     }
 
-    .account-info {
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-
-    .account-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.8rem;
+    /* Account Info */
+    .account-section {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
     }
 
-    .account-item label {
-      font-size: 0.8rem;
+    .account-label {
+      font-size: 0.75rem;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 0.5rem;
     }
 
-    .account-item .value {
+    .account-value {
       font-size: 1rem;
-      font-weight: bold;
-      color: var(--accent2);
-    }
-
-    .account-item .value.balance {
-      color: var(--green);
-    }
-
-    .account-item .value.address {
-      font-size: 0.7rem;
+      color: var(--text);
       word-break: break-all;
-      font-family: monospace;
+      font-weight: bold;
     }
 
+    .balance-display {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: linear-gradient(135deg, rgba(124, 106, 247, 0.1), rgba(61, 224, 200, 0.1));
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+    }
+
+    .balance-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+    }
+
+    .balance-amount {
+      font-size: 1.8rem;
+      color: var(--green);
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .balance-usd {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* Action Buttons */
     .modal-actions {
       display: flex;
       gap: 1rem;
       margin-top: 1.5rem;
     }
 
-    .modal-actions button {
+    .btn {
       flex: 1;
-      padding: 0.8rem;
+      padding: 0.7rem 1rem;
       border: none;
       border-radius: 6px;
-      font-family: 'Courier New', monospace;
       font-size: 0.85rem;
       font-weight: bold;
       cursor: pointer;
       transition: all 0.2s;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
     }
 
     .btn-primary {
@@ -212,14 +228,13 @@
     }
 
     .btn-secondary {
-      background: var(--bg);
+      background: var(--border);
       color: var(--text);
-      border: 1px solid var(--border);
     }
 
     .btn-secondary:hover {
-      border-color: var(--accent);
-      color: var(--accent);
+      background: var(--muted);
+      opacity: 0.8;
     }
 
     /* Main Content */
@@ -229,34 +244,20 @@
       margin: 0 auto;
     }
 
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-      color: var(--accent2);
+    .welcome {
+      text-align: center;
+      margin: 4rem 0;
     }
 
-    p {
+    .welcome h2 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: var(--accent);
+    }
+
+    .welcome p {
       color: var(--muted);
+      font-size: 1rem;
       line-height: 1.6;
     }
   </style>
-</head>
-<body>
-  <nav>
-    <div class="logo">Neura<span>Coin</span></div>
-    <div class="nav-right">
-      <div class="nav-links">
-        <a href="#compute">Compute</a>
-        <a href="#earn">Earn</a>
-        <a href="#docs">Docs</a>
-      </div>
-      <button class="wallet-btn" id="walletBtn">Connect Wallet</button>
-    </div>
-  </nav>
-
-  <!-- Wallet Modal -->
-  <div class="modal" id="walletModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Wallet Connected</h3>
-        <button class="modal-close" id="modalClose">&times
