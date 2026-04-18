@@ -61,6 +61,16 @@ def print_error(message: str, context: Optional[str] = None, exit_code: int = 1)
     raise SystemExit(exit_code)
 
 
+def print_success(message: str) -> None:
+    """Print success message."""
+    console.print(f"[green]✓[/green] {message}")
+
+
+def print_warning(message: str) -> None:
+    """Print warning message."""
+    console.print(f"[yellow]⚠[/yellow] {message}")
+
+
 # ── Validators ────────────────────────────────────────────────────────────────
 
 def validate_address(ctx, param, value: str) -> str:
@@ -87,7 +97,10 @@ def validate_address(ctx, param, value: str) -> str:
             "Address contains invalid hexadecimal characters"
         )
 
-    return Web3.to_checksum_address(value)
+    try:
+        return Web3.to_checksum_address(value)
+    except Exception as e:
+        raise click.BadParameter(f"Failed to convert address to checksum format: {str(e)}")
 
 
 def validate_positive_number(ctx, param, value: Any) -> float:
@@ -107,138 +120,124 @@ def validate_positive_number(ctx, param, value: Any) -> float:
                 f"Value must be positive (> 0), got: {num}"
             )
         return num
-    except (ValueError, TypeError):
+    except ValueError:
         raise click.BadParameter(
             f"Invalid number format: '{value}' is not a valid number"
         )
 
 
-def validate_json_file(ctx, param, value: Optional[str]) -> Dict[str, Any]:
+def validate_json_file(ctx, param, filepath: Optional[str]) -> Dict[str, Any]:
     """Validate and load JSON file."""
-    if not value:
+    if not filepath:
         raise click.BadParameter("JSON file path cannot be empty")
 
-    file_path = Path(value).resolve()
+    filepath = filepath.strip()
+    path = Path(filepath)
 
-    if not file_path.exists():
+    if not path.exists():
         raise click.BadParameter(
-            f"File not found: {file_path}\n"
-            f"Please provide a valid path to a JSON file"
+            f"File not found: {filepath}"
         )
 
-    if not file_path.is_file():
+    if not path.is_file():
         raise click.BadParameter(
-            f"Path is not a file: {file_path}"
+            f"Path is not a file: {filepath}"
         )
 
-    if file_path.suffix.lower() != ".json":
+    if path.suffix.lower() != ".json":
         raise click.BadParameter(
-            f"File must be JSON format (.json), got: {file_path.suffix}"
+            f"File must be JSON format, got: {path.suffix}"
         )
 
     try:
-        with open(file_path, "r") as f:
+        with open(path, "r") as f:
             data = json.load(f)
         return data
     except json.JSONDecodeError as e:
         raise click.BadParameter(
-            f"Invalid JSON in file: {e.msg} at line {e.lineno}, column {e.colno}"
+            f"Invalid JSON in {filepath}: {str(e)}"
         )
     except IOError as e:
         raise click.BadParameter(
-            f"Failed to read file: {e}"
+            f"Cannot read file {filepath}: {str(e)}"
         )
 
 
 def validate_job_spec(spec: Dict[str, Any]) -> None:
     """Validate job specification structure."""
-    required_fields = ["model", "input_data", "hardware_requirements"]
+    required_fields = ["model", "input_size", "output_size"]
 
     for field in required_fields:
         if field not in spec:
             raise ValidationError(
-                f"Job spec missing required field: '{field}'\n"
-                f"Required fields: {', '.join(required_fields)}"
+                f"Job spec missing required field: '{field}'"
             )
 
-    if not isinstance(spec.get("model"), str) or not spec["model"]:
-        raise ValidationError("'model' must be a non-empty string")
+    if not isinstance(spec["model"], str) or not spec["model"].strip():
+        raise ValidationError("Field 'model' must be non-empty string")
 
-    if not isinstance(spec.get("hardware_requirements"), dict):
-        raise ValidationError("'hardware_requirements' must be an object")
+    if not isinstance(spec["input_size"], (int, float)) or spec["input_size"] <= 0:
+        raise ValidationError("Field 'input_size' must be positive number")
 
-    hw_req = spec["hardware_requirements"]
-    if "gpu_memory_gb" in hw_req:
-        try:
-            gpu_mem = float(hw_req["gpu_memory_gb"])
-            if gpu_mem <= 0:
-                raise ValueError()
-        except (ValueError, TypeError):
-            raise ValidationError("'gpu_memory_gb' must be a positive number")
+    if not isinstance(spec["output_size"], (int, float)) or spec["output_size"] <= 0:
+        raise ValidationError("Field 'output_size' must be positive number")
 
 
-def validate_environment() -> None:
-    """Validate that required environment variables are set."""
-    if not NRC_ADDRESS:
-        print_error(
-            "NRC_TOKEN_ADDRESS not set",
-            "Environment",
-            exit_code=1
-        )
+def validate_rpc_url(url: str) -> None:
+    """Validate RPC URL format."""
+    if not url:
+        raise ValidationError("RPC URL cannot be empty")
 
-    if not JOB_REGISTRY:
-        print_error(
-            "JOB_REGISTRY_ADDR not set",
-            "Environment",
-            exit_code=1
-        )
+    url = url.strip()
+
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise ValidationError("RPC URL must start with http:// or https://")
 
     if not WEB3_AVAILABLE:
-        print_error(
-            "Required packages not installed: web3, click, rich",
-            "Dependencies",
-            exit_code=1
+        raise ValidationError("Web3 library not available. Install with: pip install web3")
+
+
+def validate_private_key(key: str) -> str:
+    """Validate private key format."""
+    if not key:
+        raise ValidationError("Private key cannot be empty")
+
+    key = key.strip()
+
+    if not key.startswith("0x"):
+        raise ValidationError("Private key must start with '0x'")
+
+    if len(key) != 66:
+        raise ValidationError(
+            f"Invalid private key length: expected 66 characters, got {len(key)}"
         )
+
+    try:
+        int(key, 16)
+    except ValueError:
+        raise ValidationError("Private key contains invalid hexadecimal characters")
+
+    return key
 
 
 # ── CLI Commands ──────────────────────────────────────────────────────────────
 
 @click.group()
 @click.version_option(version="0.1.0")
-def cli() -> None:
-    """
-    NeuraCoin Protocol CLI
-    
-    Manage GPU compute sharing and NRC token operations.
-    """
-    pass
+def cli():
+    """NeuraCoin - Decentralized AI compute-sharing protocol"""
+    if not WEB3_AVAILABLE:
+        print_warning("Web3 library not available. Install with: pip install web3")
 
 
 @cli.command()
-def status() -> None:
+def status():
     """Check NeuraCoin network status."""
     try:
-        validate_environment()
+        if not DEFAULT_RPC:
+            print_error("RPC URL not configured", "config", 1)
 
-        if not WEB3_AVAILABLE:
-            print_error("Web3 not available", "Network")
-
-        w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
-
-        if not w3.is_connected():
-            print_error(
-                f"Cannot connect to RPC endpoint: {DEFAULT_RPC}",
-                "Connection"
-            )
-
-        block = w3.eth.block_number
-        gas_price = w3.eth.gas_price
-
-        table = Table(title="NeuraCoin Status")
-        table.add_column("Property", style="cyan")
-        table.add_column("Value", style="green")
-
-        table.add_row("Network", "Connected")
-        table.add_row("Block Number", str(block))
-        table.add_row("Gas Price (Wei)", str(gas_price))
-        table.add_row("RPC Endpoint", DEFAULT_RPC)
+        try:
+            validate_rpc_url(DEFAULT_RPC)
+        except ValidationError as e:
+            print_error(str(e
