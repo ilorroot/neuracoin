@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -144,120 +143,117 @@
       color: var(--text);
     }
 
-    /* Account Info */
-    .account-section {
+    .modal-body {
       margin-bottom: 1.5rem;
-      padding: 1rem;
+    }
+
+    .modal-body p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 0.8rem;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
-    }
-
-    .account-label {
-      font-size: 0.75rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 0.5rem;
-    }
-
-    .account-value {
-      font-size: 1rem;
+      border-radius: 6px;
       color: var(--text);
-      word-break: break-all;
-      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
     }
 
-    .balance-display {
-      margin-bottom: 1.5rem;
-      padding: 1rem;
-      background: linear-gradient(135deg, rgba(124, 106, 247, 0.1), rgba(61, 224, 200, 0.1));
-      border: 1px solid var(--accent);
-      border-radius: 8px;
+    .modal-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(124, 106, 247, 0.3);
     }
 
-    .balance-label {
-      font-size: 0.75rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 0.5rem;
-    }
-
-    .balance-amount {
-      font-size: 1.8rem;
-      color: var(--green);
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-
-    .balance-usd {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    /* Action Buttons */
-    .modal-actions {
+    .modal-footer {
       display: flex;
       gap: 1rem;
-      margin-top: 1.5rem;
     }
 
-    .btn {
+    .modal-footer button {
       flex: 1;
-      padding: 0.7rem 1rem;
+      padding: 0.8rem;
       border: none;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-family: 'Courier New', monospace;
       font-weight: bold;
       cursor: pointer;
       transition: all 0.2s;
-      font-family: 'Courier New', monospace;
-      letter-spacing: 1px;
     }
 
-    .btn-primary {
+    .modal-footer .btn-primary {
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color: var(--bg);
     }
 
-    .btn-primary:hover {
+    .modal-footer .btn-primary:hover {
       transform: translateY(-2px);
       opacity: 0.9;
     }
 
-    .btn-secondary {
+    .modal-footer .btn-secondary {
       background: var(--border);
       color: var(--text);
     }
 
-    .btn-secondary:hover {
-      background: var(--muted);
-      opacity: 0.8;
+    .modal-footer .btn-secondary:hover {
+      background: var(--border);
+      border-color: var(--muted);
     }
 
-    /* Main Content */
+    /* Main Container */
     .container {
-      padding: 2rem;
       max-width: 1200px;
       margin: 0 auto;
+      padding: 2rem;
     }
 
-    .welcome {
-      text-align: center;
-      margin: 4rem 0;
+    /* Price Chart Card */
+    .price-chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
-    .welcome h2 {
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .chart-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .chart-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--accent2);
+      letter-spacing: 1px;
+    }
+
+    .chart-price {
       font-size: 2rem;
-      margin-bottom: 1rem;
-      color: var(--accent);
+      font-weight: bold;
+      color: var(--text);
     }
 
-    .welcome p {
-      color: var(--muted);
+    .chart-price-change {
       font-size: 1rem;
-      line-height: 1.6;
-    }
-  </style>
+      font-weight: bold;
+      padding: 0.4rem 0.8rem;
