@@ -79,117 +79,98 @@ class TestNRCTokenMint:
 
     @pytest.fixture
     def token(self) -> MockNRCToken:
-        """Fixture to provide a fresh token instance."""
-        return MockNRCToken()
+        """Create a fresh token instance for each test."""
+        return MockNRCToken(initial_supply=0)
 
-    def test_mint_tokens_basic(self, token: MockNRCToken):
-        """Test basic token minting to an account."""
-        account = "0x1234567890abcdef"
-        amount = 1000
+    def test_mint_positive_amount(self, token: MockNRCToken) -> None:
+        """Test minting positive amount of tokens."""
+        assert token.mint("gpu_owner_1", 1000) is True
+        assert token.balance_of("gpu_owner_1") == 1000
+        assert token.total_supply == 1000
 
-        result = token.mint(account, amount)
-
-        assert result is True
-        assert token.balance_of(account) == amount
-        assert token.total_supply == amount
-
-    def test_mint_multiple_accounts(self, token: MockNRCToken):
+    def test_mint_to_multiple_accounts(self, token: MockNRCToken) -> None:
         """Test minting tokens to multiple accounts."""
-        account_a = "0xaaaa"
-        account_b = "0xbbbb"
-        amount = 500
+        token.mint("account_a", 500)
+        token.mint("account_b", 300)
+        assert token.balance_of("account_a") == 500
+        assert token.balance_of("account_b") == 300
+        assert token.total_supply == 800
 
-        token.mint(account_a, amount)
-        token.mint(account_b, amount)
+    def test_mint_incremental_amounts(self, token: MockNRCToken) -> None:
+        """Test multiple mint operations to same account."""
+        token.mint("gpu_owner", 100)
+        token.mint("gpu_owner", 250)
+        token.mint("gpu_owner", 150)
+        assert token.balance_of("gpu_owner") == 500
+        assert token.total_supply == 500
 
-        assert token.balance_of(account_a) == amount
-        assert token.balance_of(account_b) == amount
-        assert token.total_supply == amount * 2
-
-    def test_mint_accumulation(self, token: MockNRCToken):
-        """Test minting multiple times to the same account."""
-        account = "0x1111"
-
-        token.mint(account, 100)
-        token.mint(account, 200)
-        token.mint(account, 300)
-
-        assert token.balance_of(account) == 600
-        assert token.total_supply == 600
-
-    def test_mint_invalid_amount(self, token: MockNRCToken):
-        """Test that minting with invalid amounts raises error."""
-        account = "0x1234"
-
+    def test_mint_zero_amount_raises_error(self, token: MockNRCToken) -> None:
+        """Test that minting zero amount raises ValueError."""
         with pytest.raises(ValueError, match="Mint amount must be positive"):
-            token.mint(account, 0)
+            token.mint("account", 0)
 
+    def test_mint_negative_amount_raises_error(self, token: MockNRCToken) -> None:
+        """Test that minting negative amount raises ValueError."""
         with pytest.raises(ValueError, match="Mint amount must be positive"):
-            token.mint(account, -100)
+            token.mint("account", -500)
 
-    def test_mint_large_amount(self, token: MockNRCToken):
+    def test_mint_large_amounts(self, token: MockNRCToken) -> None:
         """Test minting very large amounts."""
-        account = "0xbeef"
-        large_amount = 10**18  # 1 billion tokens with 18 decimals
-
-        token.mint(account, large_amount)
-
-        assert token.balance_of(account) == large_amount
+        large_amount = 10**18
+        token.mint("account", large_amount)
+        assert token.balance_of("account") == large_amount
         assert token.total_supply == large_amount
+
+    def test_mint_preserves_existing_balance(self, token: MockNRCToken) -> None:
+        """Test that minting adds to existing balance correctly."""
+        token.balances["account"] = 1000
+        token.total_supply = 1000
+        token.mint("account", 500)
+        assert token.balance_of("account") == 1500
+        assert token.total_supply == 1500
 
 
 class TestNRCTokenTransfer:
     """Test cases for NRC token transfer functionality."""
 
     @pytest.fixture
-    def token_with_balance(self) -> MockNRCToken:
-        """Fixture providing a token with pre-minted balances."""
-        token = MockNRCToken()
-        token.mint("0xaccount_a", 1000)
-        token.mint("0xaccount_b", 500)
-        return token
+    def token(self) -> MockNRCToken:
+        """Create a token instance with initial balances."""
+        t = MockNRCToken()
+        t.mint("sender", 1000)
+        t.mint("recipient", 500)
+        return t
 
-    def test_transfer_tokens_basic(self, token_with_balance: MockNRCToken):
-        """Test basic token transfer between accounts."""
-        token = token_with_balance
-        from_account = "0xaccount_a"
-        to_account = "0xaccount_b"
-        amount = 100
+    def test_transfer_valid_amount(self, token: MockNRCToken) -> None:
+        """Test transferring valid amount between accounts."""
+        assert token.transfer("sender", "recipient", 300) is True
+        assert token.balance_of("sender") == 700
+        assert token.balance_of("recipient") == 800
+        assert token.total_supply == 1500
 
-        initial_from_balance = token.balance_of(from_account)
-        initial_to_balance = token.balance_of(to_account)
-
-        result = token.transfer(from_account, to_account, amount)
-
-        assert result is True
-        assert token.balance_of(from_account) == initial_from_balance - amount
-        assert token.balance_of(to_account) == initial_to_balance + amount
-        assert token.total_supply == 1500  # Total supply unchanged
-
-    def test_transfer_full_balance(self, token_with_balance: MockNRCToken):
+    def test_transfer_entire_balance(self, token: MockNRCToken) -> None:
         """Test transferring entire balance."""
-        token = token_with_balance
-        from_account = "0xaccount_a"
-        to_account = "0xaccount_c"
-        amount = 1000
+        token.transfer("sender", "recipient", 1000)
+        assert token.balance_of("sender") == 0
+        assert token.balance_of("recipient") == 1500
 
-        token.transfer(from_account, to_account, amount)
+    def test_transfer_to_new_account(self, token: MockNRCToken) -> None:
+        """Test transferring to account with no prior balance."""
+        token.transfer("sender", "new_account", 250)
+        assert token.balance_of("new_account") == 250
+        assert token.balance_of("sender") == 750
 
-        assert token.balance_of(from_account) == 0
-        assert token.balance_of(to_account) == amount
+    def test_transfer_multiple_operations(self, token: MockNRCToken) -> None:
+        """Test multiple sequential transfers."""
+        token.transfer("sender", "recipient", 200)
+        token.transfer("recipient", "sender", 100)
+        token.transfer("sender", "recipient", 50)
+        assert token.balance_of("sender") == 950
+        assert token.balance_of("recipient") == 650
 
-    def test_transfer_insufficient_balance(self, token_with_balance: MockNRCToken):
-        """Test that transfer with insufficient balance fails."""
-        token = token_with_balance
-        from_account = "0xaccount_a"
-        to_account = "0xaccount_b"
-
-        with pytest.raises(ValueError, match="Insufficient balance"):
-            token.transfer(from_account, to_account, 2000)
-
-    def test_transfer_invalid_amount(self, token_with_balance: MockNRCToken):
-        """Test that transfer with invalid amounts raises error."""
-        token = token_with_balance
-
+    def test_transfer_zero_amount_raises_error(self, token: MockNRCToken) -> None:
+        """Test that transferring zero amount raises ValueError."""
         with pytest.raises(ValueError, match="Transfer amount must be positive"):
-            token.transfer("0xaccount_a", "0
+            token.transfer("sender", "recipient", 0)
+
+    def test_transfer
