@@ -11,6 +11,7 @@ Usage:
     python neuracoin.py jobs submit --spec job.json --stake 100
     python neuracoin.py provider register
     python neuracoin.py wallet balance --address 0x...
+    python neuracoin.py network stats
 
 Requirements:
     pip install web3 click rich
@@ -39,6 +40,8 @@ console = Console()
 DEFAULT_RPC    = os.getenv("NEURACOIN_RPC",      "https://rpc.neuracoin.network")
 NRC_ADDRESS    = os.getenv("NRC_TOKEN_ADDRESS",  "")
 JOB_REGISTRY   = os.getenv("JOB_REGISTRY_ADDR", "")
+PROVIDER_REGISTRY = os.getenv("PROVIDER_REGISTRY_ADDR", "")
+STAKING_CONTRACT = os.getenv("STAKING_CONTRACT_ADDR", "")
 PRIVATE_KEY    = os.getenv("NEURACOIN_KEY",      "")
 
 # ── Error Messages ────────────────────────────────────────────────────────────
@@ -103,141 +106,131 @@ def validate_address(ctx, param, value: str) -> str:
         raise click.BadParameter(f"Failed to convert address to checksum format: {str(e)}")
 
 
-def validate_positive_number(ctx, param, value: Any) -> float:
-    """Validate that a number is positive."""
+def validate_positive_number(ctx, param, value: Any) -> Decimal:
+    """Validate positive numeric input."""
     if value is None:
-        return value
-
-    if isinstance(value, str):
-        value = value.strip()
-        if not value:
-            raise click.BadParameter("Number cannot be empty")
+        return None
 
     try:
-        num = float(value)
-        if num <= 0:
-            raise click.BadParameter(
-                f"Value must be positive (> 0), got: {num}"
-            )
-        return num
-    except ValueError:
-        raise click.BadParameter(
-            f"Invalid number format: '{value}' is not a valid number"
-        )
+        decimal_value = Decimal(str(value))
+        if decimal_value <= 0:
+            raise click.BadParameter(f"Value must be positive, got: {value}")
+        return decimal_value
+    except (ValueError, TypeError):
+        raise click.BadParameter(f"Invalid number format: {value}")
 
 
-def validate_json_file(ctx, param, filepath: Optional[str]) -> Dict[str, Any]:
-    """Validate and load JSON file."""
-    if not filepath:
-        raise click.BadParameter("JSON file path cannot be empty")
+# ── Web3 Helpers ──────────────────────────────────────────────────────────────
 
-    filepath = filepath.strip()
-    path = Path(filepath)
-
-    if not path.exists():
-        raise click.BadParameter(
-            f"File not found: {filepath}"
-        )
-
-    if not path.is_file():
-        raise click.BadParameter(
-            f"Path is not a file: {filepath}"
-        )
-
-    if path.suffix.lower() != ".json":
-        raise click.BadParameter(
-            f"File must be JSON format, got: {path.suffix}"
-        )
-
-    try:
-        with open(path, "r") as f:
-            data = json.load(f)
-        return data
-    except json.JSONDecodeError as e:
-        raise click.BadParameter(
-            f"Invalid JSON in {filepath}: {str(e)}"
-        )
-    except IOError as e:
-        raise click.BadParameter(
-            f"Cannot read file {filepath}: {str(e)}"
-        )
-
-
-def validate_job_spec(spec: Dict[str, Any]) -> None:
-    """Validate job specification structure."""
-    required_fields = ["model", "input_size", "output_size"]
-
-    for field in required_fields:
-        if field not in spec:
-            raise ValidationError(
-                f"Job spec missing required field: '{field}'"
-            )
-
-    if not isinstance(spec["model"], str) or not spec["model"].strip():
-        raise ValidationError("Field 'model' must be non-empty string")
-
-    if not isinstance(spec["input_size"], (int, float)) or spec["input_size"] <= 0:
-        raise ValidationError("Field 'input_size' must be positive number")
-
-    if not isinstance(spec["output_size"], (int, float)) or spec["output_size"] <= 0:
-        raise ValidationError("Field 'output_size' must be positive number")
-
-
-def validate_rpc_url(url: str) -> None:
-    """Validate RPC URL format."""
-    if not url:
-        raise ValidationError("RPC URL cannot be empty")
-
-    url = url.strip()
-
-    if not (url.startswith("http://") or url.startswith("https://")):
-        raise ValidationError("RPC URL must start with http:// or https://")
-
+def get_web3() -> Web3:
+    """Initialize and return Web3 instance."""
     if not WEB3_AVAILABLE:
-        raise ValidationError("Web3 library not available. Install with: pip install web3")
+        print_error("Web3 library not available. Install with: pip install web3")
+
+    w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
+    if not w3.is_connected():
+        print_error(f"Failed to connect to RPC endpoint: {DEFAULT_RPC}", "RPC Connection")
+
+    return w3
 
 
-def validate_private_key(key: str) -> str:
-    """Validate private key format."""
-    if not key:
-        raise ValidationError("Private key cannot be empty")
+def get_contract(address: str, abi: Dict[str, Any]) -> Any:
+    """Load a contract instance."""
+    if not address:
+        print_error(f"Contract address not configured", "Configuration")
 
-    key = key.strip()
-
-    if not key.startswith("0x"):
-        raise ValidationError("Private key must start with '0x'")
-
-    if len(key) != 66:
-        raise ValidationError(
-            f"Invalid private key length: expected 66 characters, got {len(key)}"
-        )
-
+    w3 = get_web3()
     try:
-        int(key, 16)
-    except ValueError:
-        raise ValidationError("Private key contains invalid hexadecimal characters")
+        return w3.eth.contract(address=Web3.to_checksum_address(address), abi=abi)
+    except Exception as e:
+        print_error(f"Failed to load contract: {str(e)}", "Contract Loading")
 
-    return key
 
+# ── Job Registry ABI (minimal) ────────────────────────────────────────────────
+
+JOB_REGISTRY_ABI = [
+    {
+        "inputs": [],
+        "name": "totalJobs",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "jobCount",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
+
+# ── Provider Registry ABI (minimal) ───────────────────────────────────────────
+
+PROVIDER_REGISTRY_ABI = [
+    {
+        "inputs": [],
+        "name": "totalProviders",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "providerCount",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
+
+# ── Staking Contract ABI (minimal) ────────────────────────────────────────────
+
+STAKING_CONTRACT_ABI = [
+    {
+        "inputs": [],
+        "name": "totalStaked",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getTotalStaked",
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 
 # ── CLI Commands ──────────────────────────────────────────────────────────────
 
 @click.group()
-@click.version_option(version="0.1.0")
-def cli():
-    """NeuraCoin - Decentralized AI compute-sharing protocol"""
-    if not WEB3_AVAILABLE:
-        print_warning("Web3 library not available. Install with: pip install web3")
+def cli() -> None:
+    """NeuraCoin CLI - Decentralized AI Compute Protocol"""
+    pass
 
 
-@cli.command()
-def status():
-    """Check NeuraCoin network status."""
+@cli.group()
+def network() -> None:
+    """Network information and statistics"""
+    pass
+
+
+@network.command()
+def stats() -> None:
+    """Display network statistics (jobs, providers, staked NRC)"""
     try:
-        if not DEFAULT_RPC:
-            print_error("RPC URL not configured", "config", 1)
-
-        try:
-            validate_rpc_url(DEFAULT_RPC)
-        except ValidationError as e:
-            print_error(str(e
+        w3 = get_web3()
+        
+        total_jobs = 0
+        total_providers = 0
+        total_staked = 0
+        
+        # Fetch total jobs
+        if JOB_REGISTRY:
+            try:
+                job_contract = get_contract(JOB_REGISTRY, JOB_REGISTRY_ABI)
+                total_jobs = job_contract.functions.totalJobs().call()
+            except Exception as e:
+                print_warning(f"Failed to fetch job count: {str(e)}")
