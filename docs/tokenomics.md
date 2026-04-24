@@ -65,47 +65,16 @@ Compute rewards follow a **halving schedule** every 24 months:
 
 | Role              | Minimum Stake  | Slashing Condition              |
 |-------------------|----------------|----------------------------------|
-| Compute Provider  | 1,000 NRC      | Submitting fraudulent output     |
-| Validator         | 10,000 NRC     | Dishonest verification           |
-
-Slashed tokens are sent to the community treasury.
+| Compute Provider  | 10,000 NRC     | Job failure, downtime > 24h      |
+| Validator         | 50,000 NRC     | Byzantine fault, double-signing  |
 
 ---
 
-## Fee Structure
+## Token Utility
 
-Every compute job pays a **0.1% protocol fee** on the job stake:
-
-- 50% → Validator rewards (distributed proportionally to stake)
-- 50% → Community treasury (governed by NRC holders)
-
----
-
-## Governance
-
-NRC holders can vote on:
-- Protocol fee adjustments
-- Staking requirement changes
-- Emission schedule modifications
-- Treasury fund allocation
-- Smart contract upgrades
-
-Voting power is proportional to staked NRC balance. Minimum proposal threshold: 100,000 NRC.
-
----
-
-## Value Accrual
-
-NRC accrues value through:
-1. **Required for job payment** — all compute jobs must be paid in NRC
-2. **Staking lock-up** — providers and validators lock NRC, reducing circulating supply
-3. **Fee burn** — a portion of protocol fees may be burned via governance vote
-4. **Growing demand** — as AI compute demand grows, protocol usage (and NRC demand) grows proportionally
-
----
-
-<!-- Last reviewed: 2026-04-12 -->
-
-## Contributing
-
-Pull requests are welcome. For
+| Use Case          | Description                                                    |
+|-------------------|----------------------------------------------------------------|
+| Compute Payment   | Users pay providers in NRC for GPU/compute time                |
+| Staking Collateral| Network participants stake NRC to earn compute rewards         |
+| Governance        | NRC holders vote on protocol upgrades and parameter changes    |
+| Fee Settlement    | Network fees are denominated and paid in NRC                   |
