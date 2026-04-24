@@ -65,16 +65,6 @@ Compute rewards follow a **halving schedule** every 24 months:
 
 | Role              | Minimum Stake  | Slashing Condition              |
 |-------------------|----------------|----------------------------------|
-| Compute Provider  | 10,000 NRC     | Job failure, downtime > 24h      |
-| Validator         | 50,000 NRC     | Byzantine fault, double-signing  |
-
----
-
-## Token Utility
-
-| Use Case          | Description                                                    |
-|-------------------|----------------------------------------------------------------|
-| Compute Payment   | Users pay providers in NRC for GPU/compute time                |
-| Staking Collateral| Network participants stake NRC to earn compute rewards         |
-| Governance        | NRC holders vote on protocol upgrades and parameter changes    |
-| Fee Settlement    | Network fees are denominated and paid in NRC                   |
+| Compute Provider  | 10,000 NRC     | Downtime >24h or job failure    |
+| Validator         | 50,000 NRC     | Byzantine behavior or slashing  |
+| Delegator         | 100 NRC        | No slashing (delegation only)    |
