@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 """
 NeuraCoin Compute Node Client
@@ -8,6 +7,7 @@ A simple client that polls for AI compute jobs and logs activity.
 import json
 import logging
 import time
+import random
 from datetime import datetime
 from typing import Optional
 from dataclasses import dataclass, asdict
@@ -99,129 +99,123 @@ class ComputeNodeClient:
         Returns:
             A Job if available, None otherwise
         """
-        # Simulate job polling - in production this would call the actual job dispatcher
         logger.debug("Polling for available compute jobs...")
 
-        # For demo purposes, we'll simulate receiving jobs occasionally
-        import random
-        if random.random() < 0.3:  # 30% chance of getting a job
+        if random.random() < 0.3:
+            job_id = f"job_{int(time.time())}_{random.randint(1000, 9999)}"
+            models = ["gpt-3.5", "stable-diffusion", "llama-2", "bert-large"]
             job = Job(
-                job_id=f"job_{int(time.time() * 1000)}",
-                model_name=random.choice([
-                    "GPT-3.5-Turbo",
-                    "Llama-2-70B",
-                    "Mistral-7B",
-                    "LLaVA-Vision",
-                    "Stable-Diffusion-XL"
-                ]),
-                input_data={
-                    "prompt": "Sample compute task",
-                    "parameters": {"temperature": 0.7, "max_tokens": 256}
-                },
+                job_id=job_id,
+                model_name=random.choice(models),
+                input_data={"prompt": "sample inference task"},
                 gpu_required=self.gpu_model,
-                reward=random.uniform(0.5, 5.0),
-                timestamp=datetime.now().isoformat()
+                reward=random.uniform(0.1, 1.5),
+                timestamp=datetime.utcnow().isoformat()
             )
-            logger.info(f"Job received: {job.job_id} ({job.model_name})")
+            logger.info(f"Job received: {job_id} ({job.model_name}) - Reward: {job.reward:.2f} NRC")
             return job
 
         return None
 
     def execute_job(self, job: Job) -> bool:
         """
-        Execute a compute job.
-        In a real implementation, this would run the actual AI model.
+        Execute a compute job and update node statistics.
 
         Args:
             job: The job to execute
 
         Returns:
-            True if job completed successfully, False otherwise
+            True if job executed successfully, False otherwise
         """
-        logger.info(f"Starting execution of job {job.job_id}")
-
-        # Simulate job execution time
-        execution_time = 2 + (hash(job.job_id) % 5)  # 2-7 seconds
-        logger.info(f"Estimated execution time: {execution_time}s")
+        logger.info(f"Executing job: {job.job_id}")
 
         try:
-            # Simulate GPU memory usage
-            memory_used = 4 + (hash(job.job_id) % 12)  # 4-16GB
-            self.available_memory_gb -= min(memory_used, self.available_memory_gb)
+            memory_needed = random.randint(4, 16)
+            if memory_needed > self.available_memory_gb:
+                logger.warning(f"Insufficient memory for job {job.job_id}")
+                return False
 
-            # Simulate execution
-            time.sleep(1)  # Sleep for 1 second in demo mode instead of full time
-            logger.info(f"Job {job.job_id} completed successfully")
+            self.available_memory_gb -= memory_needed
+            logger.info(f"Memory allocated: {memory_needed}GB")
 
-            # Free up memory
-            self.available_memory_gb = min(
-                self.available_memory_gb + memory_used,
-                self.total_memory_gb
-            )
+            execution_time = random.uniform(2, 8)
+            logger.info(f"Running inference for {execution_time:.1f} seconds...")
+            time.sleep(min(execution_time, 2))
 
-            # Update stats
+            self.available_memory_gb += memory_needed
             self.total_jobs_completed += 1
             self.total_earnings += job.reward
 
-            logger.info(
-                f"Earnings updated: +{job.reward} NRC (Total: {self.total_earnings:.2f} NRC)"
-            )
+            logger.info(f"Job {job.job_id} completed! Earned {job.reward:.2f} NRC")
+            logger.info(f"Total earnings: {self.total_earnings:.2f} NRC | Jobs completed: {self.total_jobs_completed}")
 
             return True
 
         except Exception as e:
             logger.error(f"Error executing job {job.job_id}: {str(e)}")
-            self.available_memory_gb = self.total_memory_gb  # Reset memory
             return False
-
-    def log_activity(self) -> None:
-        """Log current node activity and statistics."""
-        stats = self.get_stats()
-        uptime_hours = stats.uptime_seconds / 3600
-
-        activity_log = {
-            "timestamp": datetime.now().isoformat(),
-            "node_id": stats.node_id,
-            "gpu_model": stats.gpu_model,
-            "memory_usage": {
-                "total_gb": stats.total_memory_gb,
-                "available_gb": stats.available_memory_gb,
-                "utilization_percent": round(
-                    100 * (1 - stats.available_memory_gb / stats.total_memory_gb), 2
-                )
-            },
-            "performance": {
-                "total_jobs_completed": stats.total_jobs_completed,
-                "total_earnings_nrc": round(stats.total_earnings, 4),
-                "uptime_hours": round(uptime_hours, 2)
-            },
-            "queue_status": {
-                "pending_jobs": len(self.job_queue)
-            }
-        }
-
-        logger.info(f"Activity Log: {json.dumps(activity_log, indent=2)}")
-
-        return activity_log
 
     def run(self, duration: Optional[int] = None) -> None:
         """
-        Run the compute node client main loop.
+        Start the compute node client polling loop.
 
         Args:
-            duration: Run duration in seconds. If None, run indefinitely.
+            duration: Optional duration in seconds to run before stopping
         """
         self.is_running = True
-        start_time = time.time()
+        logger.info(f"Starting compute node client (poll interval: {self.poll_interval}s)")
 
-        logger.info(f"Starting compute node client (duration: {duration}s or indefinite)")
+        start_time = time.time()
 
         try:
             while self.is_running:
-                # Check if we should stop
                 if duration and (time.time() - start_time) > duration:
-                    logger.info("Duration limit reached, stopping...")
+                    logger.info("Duration limit reached, shutting down...")
                     break
 
-                # Poll for jobs
                 job = self.poll_for_jobs()
+                if job:
+                    self.execute_job(job)
+
+                time.sleep(self.poll_interval)
+
+        except KeyboardInterrupt:
+            logger.info("Received interrupt signal, shutting down...")
+        finally:
+            self.stop()
+
+    def stop(self) -> None:
+        """Stop the compute node client and log final statistics."""
+        self.is_running = False
+        stats = self.get_stats()
+        logger.info("Compute node shutting down...")
+        logger.info(f"Final statistics: {json.dumps(asdict(stats), indent=2)}")
+
+    def print_stats(self) -> None:
+        """Print current node statistics to console."""
+        stats = self.get_stats()
+        print("\n" + "="*60)
+        print("NeuraCoin Compute Node Statistics")
+        print("="*60)
+        print(f"Node ID:              {stats.node_id}")
+        print(f"GPU Model:            {stats.gpu_model}")
+        print(f"Total Memory:         {stats.total_memory_gb}GB")
+        print(f"Available Memory:     {stats.available_memory_gb}GB")
+        print(f"Jobs Completed:       {stats.total_jobs_completed}")
+        print(f"Total Earnings:       {stats.total_earnings:.2f} NRC")
+        print(f"Uptime:               {stats.uptime_seconds} seconds")
+        print("="*60 + "\n")
+
+
+if __name__ == "__main__":
+    node = ComputeNodeClient(
+        node_id="neuracoin-node-001",
+        gpu_model="NVIDIA RTX 4090",
+        total_memory_gb=24,
+        poll_interval=3
+    )
+
+    try:
+        node.run(duration=60)
+    except Exception as e:
+        logger.error(f"Node client error: {str(e)}")
