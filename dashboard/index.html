@@ -138,122 +138,121 @@
       cursor: pointer;
       transition: color 0.2s;
     }
-
-    .modal-close:hover {
-      color: var(--text);
-    }
+    .modal-close:hover { color: var(--text); }
 
     .modal-body {
-      margin-bottom: 1.5rem;
-    }
-
-    .modal-body p {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 1rem;
-      line-height: 1.5;
-    }
-
-    .modal-input {
-      width: 100%;
-      padding: 0.8rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: 'Courier New', monospace;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .modal-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 10px rgba(124, 106, 247, 0.3);
-    }
-
-    .modal-footer {
       display: flex;
+      flex-direction: column;
       gap: 1rem;
     }
 
-    .modal-footer button {
-      flex: 1;
-      padding: 0.8rem;
-      border: none;
-      border-radius: 6px;
-      font-family: 'Courier New', monospace;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .modal-footer .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: var(--bg);
-    }
-
-    .modal-footer .btn-primary:hover {
-      transform: translateY(-2px);
-      opacity: 0.9;
-    }
-
-    .modal-footer .btn-secondary {
-      background: var(--border);
-      color: var(--text);
-    }
-
-    .modal-footer .btn-secondary:hover {
-      background: var(--border);
-      border-color: var(--muted);
-    }
-
-    /* Main Container */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    /* Price Chart Card */
-    .price-chart-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .chart-title-group {
+    .form-group {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
     }
 
-    .chart-title {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: var(--accent2);
+    .form-group label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
       letter-spacing: 1px;
     }
 
-    .chart-price {
-      font-size: 2rem;
-      font-weight: bold;
+    .form-group input {
+      background: var(--bg);
+      border: 1px solid var(--border);
       color: var(--text);
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
     }
 
-    .chart-price-change {
-      font-size: 1rem;
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .modal-action {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      color: var(--bg);
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
       font-weight: bold;
-      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      margin-top: 1rem;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .modal-action:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+
+    /* Main Content */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      letter-spacing: 1px;
+    }
+
+    .header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: var(--accent2);
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-change {
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.
