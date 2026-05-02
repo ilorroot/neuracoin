@@ -23,6 +23,7 @@ import click
 from pathlib import Path
 from typing import Optional, Any, Dict
 from decimal import Decimal
+from urllib.parse import urlparse
 
 try:
     from web3 import Web3
@@ -103,134 +104,128 @@ def validate_address(ctx, param, value: str) -> str:
     try:
         return Web3.to_checksum_address(value)
     except Exception as e:
-        raise click.BadParameter(f"Failed to convert address to checksum format: {str(e)}")
+        raise click.BadParameter(f"Invalid address format: {str(e)}")
+
+
+def validate_file_exists(ctx, param, value: str) -> str:
+    """Validate that file exists and is readable."""
+    if not value:
+        raise click.BadParameter("File path cannot be empty")
+
+    path = Path(value)
+    if not path.exists():
+        raise click.BadParameter(f"File not found: {value}")
+
+    if not path.is_file():
+        raise click.BadParameter(f"Path is not a file: {value}")
+
+    if not os.access(path, os.R_OK):
+        raise click.BadParameter(f"File is not readable: {value}")
+
+    return str(path.absolute())
+
+
+def validate_json_file(ctx, param, value: str) -> Dict[str, Any]:
+    """Validate and parse JSON file."""
+    if not value:
+        raise click.BadParameter("JSON file path cannot be empty")
+
+    file_path = validate_file_exists(ctx, param, value)
+
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        return data
+    except json.JSONDecodeError as e:
+        raise click.BadParameter(f"Invalid JSON in {value}: {str(e)}")
+    except IOError as e:
+        raise click.BadParameter(f"Cannot read file {value}: {str(e)}")
 
 
 def validate_positive_number(ctx, param, value: Any) -> Decimal:
-    """Validate positive numeric input."""
+    """Validate that value is a positive number."""
     if value is None:
-        return None
+        raise click.BadParameter("Value cannot be empty")
 
     try:
         decimal_value = Decimal(str(value))
-        if decimal_value <= 0:
-            raise click.BadParameter(f"Value must be positive, got: {value}")
-        return decimal_value
-    except (ValueError, TypeError):
-        raise click.BadParameter(f"Invalid number format: {value}")
-
-
-# ── Web3 Helpers ──────────────────────────────────────────────────────────────
-
-def get_web3() -> Web3:
-    """Initialize and return Web3 instance."""
-    if not WEB3_AVAILABLE:
-        print_error("Web3 library not available. Install with: pip install web3")
-
-    w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
-    if not w3.is_connected():
-        print_error(f"Failed to connect to RPC endpoint: {DEFAULT_RPC}", "RPC Connection")
-
-    return w3
-
-
-def get_contract(address: str, abi: Dict[str, Any]) -> Any:
-    """Load a contract instance."""
-    if not address:
-        print_error(f"Contract address not configured", "Configuration")
-
-    w3 = get_web3()
-    try:
-        return w3.eth.contract(address=Web3.to_checksum_address(address), abi=abi)
     except Exception as e:
-        print_error(f"Failed to load contract: {str(e)}", "Contract Loading")
+        raise click.BadParameter(f"Invalid number format: {str(e)}")
+
+    if decimal_value <= 0:
+        raise click.BadParameter(f"Value must be positive, got: {decimal_value}")
+
+    return decimal_value
 
 
-# ── Job Registry ABI (minimal) ────────────────────────────────────────────────
+def validate_rpc_url(ctx, param, value: str) -> str:
+    """Validate RPC URL format."""
+    if not value:
+        raise click.BadParameter("RPC URL cannot be empty")
 
-JOB_REGISTRY_ABI = [
-    {
-        "inputs": [],
-        "name": "totalJobs",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "jobCount",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
+    value = value.strip()
+
+    try:
+        parsed = urlparse(value)
+        if not parsed.scheme in ('http', 'https'):
+            raise click.BadParameter(f"RPC URL must use http or https, got: {parsed.scheme}")
+        if not parsed.netloc:
+            raise click.BadParameter(f"Invalid RPC URL format: {value}")
+    except Exception as e:
+        raise click.BadParameter(f"Invalid RPC URL: {str(e)}")
+
+    return value
+
+
+def validate_config() -> None:
+    """Validate that required environment variables are set."""
+    if not WEB3_AVAILABLE:
+        print_error(
+            "Required dependencies not installed. Run: pip install web3 click rich",
+            context="Dependencies"
+        )
+
+    required_vars = {
+        "NEURACOIN_RPC": DEFAULT_RPC,
+        "NRC_TOKEN_ADDRESS": NRC_ADDRESS,
+        "JOB_REGISTRY_ADDR": JOB_REGISTRY,
     }
-]
 
-# ── Provider Registry ABI (minimal) ───────────────────────────────────────────
+    missing = [name for name, value in required_vars.items() if not value]
+    if missing:
+        print_warning(
+            f"Missing environment variables: {', '.join(missing)}. "
+            "Some features may not work correctly."
+        )
 
-PROVIDER_REGISTRY_ABI = [
-    {
-        "inputs": [],
-        "name": "totalProviders",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "providerCount",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    }
-]
 
-# ── Staking Contract ABI (minimal) ────────────────────────────────────────────
-
-STAKING_CONTRACT_ABI = [
-    {
-        "inputs": [],
-        "name": "totalStaked",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getTotalStaked",
-        "outputs": [{"type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    }
-]
-
-# ── CLI Commands ──────────────────────────────────────────────────────────────
+# ── Main CLI Group ────────────────────────────────────────────────────────────
 
 @click.group()
+@click.version_option(version="0.1.0")
 def cli() -> None:
-    """NeuraCoin CLI - Decentralized AI Compute Protocol"""
-    pass
+    """NeuraCoin Protocol CLI - Decentralized AI Compute Sharing"""
+    validate_config()
 
 
-@cli.group()
-def network() -> None:
-    """Network information and statistics"""
-    pass
+# ── Status Command ────────────────────────────────────────────────────────────
 
-
-@network.command()
-def stats() -> None:
-    """Display network statistics (jobs, providers, staked NRC)"""
+@cli.command()
+def status() -> None:
+    """Show network and protocol status."""
     try:
-        w3 = get_web3()
-        
-        total_jobs = 0
-        total_providers = 0
-        total_staked = 0
-        
-        # Fetch total jobs
-        if JOB_REGISTRY:
-            try:
-                job_contract = get_contract(JOB_REGISTRY, JOB_REGISTRY_ABI)
-                total_jobs = job_contract.functions.totalJobs().call()
-            except Exception as e:
-                print_warning(f"Failed to fetch job count: {str(e)}")
+        if not WEB3_AVAILABLE:
+            print_error("Web3 library not available", context="Status")
+
+        w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
+
+        if not w3.is_connected():
+            print_error(
+                f"Cannot connect to RPC endpoint: {DEFAULT_RPC}",
+                context="Network"
+            )
+
+        block_number = w3.eth.block_number
+        latest_block = w3.eth.get_block(block_number)
+
+        table
