@@ -51,138 +51,115 @@ Manages validator set, stake requirements, and slashing conditions.
 
 ### 3.4 Proof of Compute Verification Algorithm
 
-The Proof of Compute verification algorithm is the cryptographic core of NeuraCoin's trustless execution model. It ensures that compute providers have genuinely executed submitted jobs and produced correct outputs, without requiring full re-execution by every network participant.
+The Proof of Compute verification algorithm is the cryptographic core of NeuraCoin's trustless execution model. It ensures that compute providers have genuinely executed submitted jobs according to specification.
 
-#### 3.4.1 Overview
+#### 3.4.1 Proof Generation (Provider Side)
 
-The verification process consists of three phases:
+When a compute provider executes a job, it generates a proof containing:
 
-1. **Commitment Phase**: Provider commits to job execution before completion
-2. **Submission Phase**: Provider submits output hash, execution metrics, and cryptographic proof
-3. **Challenge & Verification Phase**: Validators verify the proof deterministically
+- **Job ID**: Unique identifier linking to the job specification contract
+- **Output Hash**: SHA-3(flattened output tensor)
+- **Execution Metadata**: GPU device fingerprint, wall-clock time, memory peak usage
+- **Intermediate Checkpoints**: Layer-wise activation hashes at specified intervals (for deep learning jobs)
+- **Nonce**: Random value to prevent replay attacks
 
-#### 3.4.2 Execution Commitment
+All proof components are signed by the provider's secp256k1 private key and submitted on-chain as a transaction to the ProofVerification contract.
 
-When a compute provider accepts a job, they commit to an execution context:
+#### 3.4.2 Verification Process
 
-```
-ExecutionCommitment = {
-  jobId: bytes32,
-  providerId: address,
-  hardwareSpec: {
-    gpuModel: string,
-    vramGb: uint32,
-    cpuCores: uint32
-  },
-  estimatedDuration: uint64,
-  timestamp: uint256,
-  nonce: bytes32
-}
+Upon proof submission, the protocol executes a three-phase verification:
 
-CommitmentHash = keccak256(abi.encode(ExecutionCommitment))
-```
+**Phase 1: Syntactic Validation**
+- Verify provider signature matches registered compute node
+- Check job ID exists and is not already settled
+- Validate proof timestamp is within acceptable submission window (within job deadline + 1 hour grace period)
+- Confirm provider stake is above minimum threshold
 
-This commitment is signed by the provider and recorded on-chain, creating an immutable record that the computation occurred within a specific time window and hardware context.
+**Phase 2: Stochastic Sampling Verification**
+- A randomized subset of validators (selected via VRF) re-execute the job independently
+- Each validator runs the job in an isolated Docker container with identical hyperparameters
+- Validators produce reference output tensors using deterministic seeds
+- Compare provider output against validator outputs using L2 norm distance:
+  ```
+  distance = sqrt(sum((provider_output - validator_output)^2)) / norm(validator_output)
+  ```
+- Accept if `distance < epsilon_tolerance` (default: 0.01 for float32 operations)
+- This accounts for hardware-specific floating point rounding variations
 
-#### 3.4.3 Output Proof Generation
+**Phase 3: Consensus Aggregation**
+- Require supermajority (66.7%) of sampling validators to agree on validity
+- If consensus reached: mark proof as **VERIFIED** and proceed to settlement
+- If consensus not reached: slash provider stake by 5% and emit **INVALID** event
+- If fewer than 10% of validators respond within timeout (2 hours): pause job and require manual arbitration
 
-Upon job completion, the provider generates a Merkle tree of intermediate tensor checkpoints at regular intervals (every N batches). This allows validators to spot-check computation at arbitrary depths without reprocessing the entire job.
+#### 3.4.3 Handling Hardware Variance
 
-```
-ProofArtifacts = {
-  finalOutputHash: bytes32,           // SHA-256 of output tensor
-  intermediateCheckpoints: bytes32[], // Merkle tree of internal states
-  executionMetrics: {
-    totalBatches: uint32,
-    computeTimeMs: uint64,
-    peakMemoryMb: uint32,
-    flopsEstimate: uint64
-  },
-  systemSignature: bytes,             // Provider's ECDSA signature
-  gpuTelemetry: {
-    gpuUtilization: uint8,   // 0-100
-    gpuMemoryUsed: uint32,
-    thermalEvents: uint8
-  }
-}
-```
+Different GPUs (NVIDIA A100, RTX 4090, etc.) produce slightly different floating-point results due to:
+- Kernel implementation differences
+- Precision of transcendental functions
+- Tensor core precision modes
 
-The provider submits these artifacts to the VerificationRegistry contract along with a bond (additional NRC collateral).
+NeuraCoin mitigates this via:
+- **Epsilon Calibration**: Per-device epsilon values stored on-chain (e.g., 0.008 for NVIDIA A100, 0.012 for consumer GPUs)
+- **Reduced Precision Mode**: Jobs can opt for float16 execution (stricter tolerance: 0.005)
+- **Reference Hardware**: Validators use a specified reference GPU model for their executions; provider outputs are normalized to equivalent reference device precision
 
-#### 3.4.4 Deterministic Reference Execution
+#### 3.4.4 Computational Integrity Bonds
 
-A small subset of validators (selected via VRF-based random sampling) are assigned to perform a reference execution. These validators:
+To prevent Sybil attacks where malicious providers submit many false proofs, providers must maintain:
+- **Minimum Stake**: 100 NRC per concurrent job (forfeit on slashing)
+- **Reputation Score**: Exponential moving average of successful verifications; new providers start at 0.5x validator sampling multiplier
+- **Timeout Penalty**: Failure to complete within deadline triggers 2% stake slash per day overdue
 
-1. Download the exact job specification and seed dataset
-2. Execute the job on standardized GPU hardware (or via attestation-capable TEE)
-3. Produce their own output hash and intermediate checkpoints
-4. Compare their results against the provider's submission
+#### 3.4.5 Validator Economics
 
-The reference execution uses deterministic ML kernels (fixed cuDNN versions, seeded RNG initialization, no async operations) to ensure bit-identical outputs across hardware variants.
+Validators earn rewards:
+- **Base Verification Fee**: 0.1 NRC per proof verified (paid from job requester's stake)
+- **Consensus Bonus**: +50% if their vote matches final consensus
+- **Slashing Dividend**: Slashed provider stake distributed equally among validators who voted correctly
 
-#### 3.4.5 Floating Point Tolerance
-
-Due to hardware variance and parallel reduction operations, exact byte-for-byte output matching is infeasible. Instead, validators apply L2-norm distance verification:
-
-```
-maxAllowedError = sqrt(sum((referenceOutput - submittedOutput)^2)) / sqrt(sum(referenceOutput^2))
-
-if maxAllowedError <= toleranceThreshold:
-    proof_valid = true
-else:
-    proof_valid = false
-```
-
-The tolerance threshold is dynamically adjusted based on:
-- Job complexity (larger models allow higher tolerance)
-- Output precision (float32 vs float64)
-- Hardware class of execution
-
-For inference jobs, accuracy metrics (classification error rate, mean absolute error) are verified directly against a reference model evaluation.
-
-#### 3.4.6 Consensus & Slashing
-
-Validators submit their verification results (valid/invalid) with a cryptographic signature. The protocol requires:
-
-- **Minimum supermajority** (66%+) of assigned validators to agree
-- **Unanimous agreement** among validators to slash the provider
-
-If fewer than 66% of validators agree that a proof is valid:
-- Provider's bond is slashed (50% to the validator set, 50% to the protocol treasury)
-- Job result is marked as disputed, requester can resubmit
-
-If a validator submits a false verification (provably dishonest):
-- Validator's stake is slashed and locked for 90 days
-- Validator is temporarily removed from the validator set
-
-#### 3.4.7 Computational Complexity Constraints
-
-To prevent validators from being overloaded, jobs are restricted by a **Proof Complexity Budget**:
-
-```
-proofComplexityScore = (modelFLOPs / 1e12) * (executionTimeSeconds / 3600) * (gpuMemoryGb / 80)
-
-maxComplexityScore = 1000  // Equivalent to ~100 hours on an RTX 4090
-```
-
-Jobs exceeding this threshold are split into subjobs by the Job Router contract, each verified independently.
-
-#### 3.4.8 Fraud Detection
-
-The protocol implements several anti-fraud mechanisms:
-
-- **Output Sanity Checks**: Validators verify that output tensor magnitudes are within expected ranges (detects zero-output or NaN injection)
-- **Timing Analysis**: Execution time must be within 20% of the provider's committed estimate
-- **Checkpoint Consistency**: Intermediate checkpoints must form a valid Merkle tree path
-- **Hardware Attestation**: For high-value jobs, GPU providers can enable remote attestation (SGX, SEV) to prove genuine execution
+This incentivizes honest verification while penalizing false consensus.
 
 ---
 
-## 4. Governance
-On-chain governance for protocol parameter updates via NRC token voting.
+## 4. Tokenomics
+
+NRC total supply: 1 billion tokens.
+
+- 40% to compute providers (rewards pool)
+- 20% to protocol treasury (development & governance)
+- 15% to validators (verification rewards)
+- 15% to early backers
+- 10% to team (4-year vesting)
+
+Emissions follow a halvening schedule every 2 years.
 
 ---
 
-## 5. Tokenomics
+## 5. Security Considerations
 
-### 5.1
+### 5.1 Attacks & Mitigations
+
+**False Output Submission**: Provider submits incorrect computation result.
+- *Mitigation*: Validator re-execution with supermajority consensus; stake slashing.
+
+**Sybil Attack**: Attacker registers many fake validators.
+- *Mitigation*: Minimum validator stake (10k NRC); time-lock on validator registration.
+
+**Timing Side Channels**: Provider extracts information via execution time.
+- *Mitigation*: Jobs run in timing-oblivious containers; all providers see identical wall-clock allowance.
+
+**Dataset Poisoning**: Requester supplies malicious dataset to extract provider secrets.
+- *Mitigation*: Providers execute in privacy-preserving containers (future: TEE integration); input data hashed and versioned.
+
+### 5.2 Future Enhancements
+
+- **Zero-Knowledge Proofs**: Replace sampling validators with ZK circuits to reduce verification overhead
+- **Hardware Attestation**: Integrate Intel SGX / ARM TrustZone for tamper-proof execution environments
+- **Cross-Chain Verification**: Enable compute verification on non-EVM chains via light clients
+
+---
+
+## 6. Conclusion
+
+NeuraCoin democratizes access to AI compute by replacing centralized intermediaries with a transparent, cryptographically-secured protocol. Proof of Compute ensures economic fin
