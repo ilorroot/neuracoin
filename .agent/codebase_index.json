@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "files": {
+    "cli\\neuracoin.py": {
+      "hash": "634f05a78df4c6fd",
+      "purpose": "Command-line interface for NeuraCoin protocol interactions, enabling users to manage jobs, providers, wallets, and query network/pricing information.",
+      "public_api": [
+        "cli",
+        "status",
+        "price",
+        "jobs",
+        "provider",
+        "wallet",
+        "network",
+        "validate_address"
+      ],
+      "depends_on": [
+        "web3",
+        "click",
+        "rich",
+        "requests"
+      ],
+      "notes": "File appears truncated in source; uses environment variables for contract addresses and RPC endpoint configuration."
+    },
+    "cli\\node_client.py": {
+      "hash": "cc9f5ec1fbde2e50",
+      "purpose": "CLI client for NeuraCoin compute nodes that polls for AI jobs, executes them, and tracks earnings and statistics.",
+      "public_api": [
+        "ComputeNodeClient",
+        "Job",
+        "NodeStats"
+      ],
+      "depends_on": [],
+      "notes": "Mock implementation with simulated job polling and execution; real version would integrate with actual job dispatcher and GPU execution engines."
+    },
+    "contracts\\Governance.sol": {
+      "hash": "21d493c7eb3a2671",
+      "purpose": "Implements governance functionality for NeuraCoin protocol, enabling NRC token holders to create proposals, vote on them, and execute approved governance decisions.",
+      "public_api": [
+        "NuraGovernance",
+        "createProposal",
+        "castVote",
+        "cancelProposal",
+        "queueProposal",
+        "executeProposal",
+        "getProposal",
+        "getProposalState"
+      ],
+      "depends_on": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol"
+      ],
+      "notes": "Governance execution is stub-only (emits events but lacks actual state change implementation); requires integration with protocol parameters contract for proposal effects."
+    },
+    "contracts\\JobRegistry.sol": {
+      "hash": "56149c017315bead",
+      "purpose": "Manages the complete lifecycle of AI compute jobs on NeuraCoin, including job submission, provider assignment, escrow handling, completion verification, and dispute resolution.",
+      "public_api": [
+        "registerProvider",
+        "submitJob",
+        "assignJob",
+        "completeJob",
+        "flagDispute",
+        "resolveDispute",
+        "cancelJob",
+        "getOpenJobs"
+      ],
+      "depends_on": [
+        "NeuraCoin",
+        "@openzeppelin/contracts/access/Ownable",
+        "@openzeppelin/contracts/security/ReentrancyGuard"
+      ],
+      "notes": "Implements escrow-based job settlement with dispute resolution and provider stake requirements; truncated output prevents full validation of all function implementations."
+    },
+    "contracts\\NeuraCoin.sol": {
+      "hash": "dd07d0fb0e650ae1",
+      "purpose": "ERC-20 token contract for NeuraCoin (NRC) that manages token distribution, compute reward emission to GPU providers, and token burning within the NeuraCoin AI compute protocol.",
+      "public_api": [
+        "NeuraCoin",
+        "emitReward",
+        "burn",
+        "setRewardEmitter",
+        "pause",
+        "unpause"
+      ],
+      "depends_on": [
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/security/Pausable.sol"
+      ],
+      "notes": "Compute rewards pool (400M NRC) is minted lazily via JobRegistry; transfer operations are pausable by owner for emergency control."
+    },
+    "dashboard\\index.html": {
+      "hash": "13bef20ee5f943ab",
+      "purpose": "Main HTML dashboard UI for NeuraCoin with navigation, wallet connection button, and styled modal framework for account management.",
+      "public_api": [
+        "walletBtn",
+        "modal",
+        "wallet-btn",
+        "connect-wallet"
+      ],
+      "depends_on": [],
+      "notes": "Frontend-only HTML/CSS; JavaScript functionality for modal interactions and wallet connection not yet implemented in this file."
+    },
+    "tests\\test_registry.py": {
+      "hash": "b8944d9577e1c59d",
+      "purpose": "Comprehensive pytest test suite for NeuraCoin's JobRegistry, covering job submission, acceptance, completion flows, and error handling.",
+      "public_api": [
+        "TestJobRegistry",
+        "test_submit_job_success",
+        "test_accept_job_success",
+        "test_start_job_success",
+        "test_complete_job_success",
+        "test_get_nonexistent_job",
+        "registry",
+        "sample_job_params"
+      ],
+      "depends_on": [
+        "neuraca_cli.compute.registry",
+        "pytest",
+        "unittest.mock",
+        "datetime"
+      ],
+      "notes": "File appears truncated at 6811 chars; tests cover job lifecycle (PENDING \u2192 ACCEPTED \u2192 RUNNING \u2192 COMPLETED) with validation and error cases."
+    },
+    "tests\\test_token.py": {
+      "hash": "670b60619a8f07ad",
+      "purpose": "Pytest test suite for NeuraCoin (NRC) ERC20 token operations including minting, transferring, burning, and allowance logic.",
+      "public_api": [
+        "MockNRCToken",
+        "TestNRCTokenMint",
+        "TestNRCTokenTransfer",
+        "TestNRCTokenBurn",
+        "TestNRCTokenApproval"
+      ],
+      "depends_on": [
+        "pytest",
+        "unittest.mock",
+        "decimal",
+        "typing"
+      ],
+      "notes": "Contains comprehensive test coverage for token mechanics with mock ERC20 contract implementation; tests validate input validation, balance tracking, and supply management."
+    }
+  },
+  "last_refreshed": "2026-05-04T21:38:04.753778+00:00"
+}
