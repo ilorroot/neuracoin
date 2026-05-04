@@ -57,7 +57,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Add a minimal Governance contract that holds parameters (job timeout, protocol fee bps, minimum bounty) and allows the owner to update them, emitting events. This is a stub for future DAO control; tests should verify access control and parameter updates.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t7",
