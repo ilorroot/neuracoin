@@ -21,7 +21,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Document the system architecture: on-chain components (NRC token, JobRegistry, Governance), off-chain components (node client, dashboard, CLI), and the data/message flow between them. Include a component diagram in ASCII or Mermaid and define interfaces that downstream tasks will implement.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t3",
