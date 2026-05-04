@@ -12,7 +12,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Write the v0.1 whitepaper covering the problem statement, NeuraCoin protocol overview, actors (GPU providers, job submitters, validators), job lifecycle, and NRC token utility. Keep it ~3-5 pages with clear section headings so later contracts and clients can reference it.",
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "t2",
