@@ -65,6 +65,16 @@ Compute rewards follow a **halving schedule** every 24 months:
 
 | Role              | Minimum Stake  | Slashing Condition              |
 |-------------------|----------------|----------------------------------|
-| Compute Provider  | 10,000 NRC     | Downtime >24h or job failure    |
-| Validator         | 50,000 NRC     | Byzantine behavior or slashing  |
-| Delegator         | 100 NRC        | No slashing (delegation only)    |
+| Compute Provider  | 10,000 NRC     | Job timeout, malicious behavior |
+| Validator         | 50,000 NRC     | Double-signing, downtime >24h   |
+
+---
+
+## Token Utility
+
+| Use Case           | Description                                      |
+|--------------------|--------------------------------------------------|
+| Compute Payment    | Pay GPU owners for AI job execution              |
+| Provider Collateral| Required stake to join compute network           |
+| Governance         | Vote on protocol upgrades and parameter changes |
+| Staking Rewards    | Earn yield from network participation            |
