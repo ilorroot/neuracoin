@@ -39,7 +39,7 @@
         "test_file": "tests/test_token.py",
         "type": "code",
         "description": "Implement the NRC ERC-20 token using OpenZeppelin: name 'NeuraCoin', symbol 'NRC', 18 decimals, fixed initial supply minted to a treasury address, owner-controlled minter role for emissions. Write Brownie/Web3.py tests covering deployment, transfers, allowances, and minter access control.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t5",
