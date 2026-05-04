@@ -66,7 +66,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "Implement a Python node client that connects to an Ethereum RPC, polls JobRegistry for open jobs, and prints/claims jobs matching the node's GPU profile (mock execution for now). Use web3.py and provide a unit test that mocks the contract interface to verify polling and claim logic.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t8",
