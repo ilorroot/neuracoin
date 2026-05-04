@@ -8,7 +8,7 @@ NeuraCoin (NRC) is a decentralized compute-sharing protocol built on EVM-compati
 
 ## 1. Introduction
 
-The artificial intelligence industry faces a fundamental resource asymmetry. On one side, researchers, startups, and enterprises require vast amounts of GPU compute for model training and inference. On the other, a globally distributed network of GPU-equipped machines sits underutilized â€” gaming computers, workstations, and small data centers with excess capacity.
+The artificial intelligence industry faces a fundamental resource asymmetry. On one side, researchers, startups, and enterprises require vast amounts of GPU compute for model training and inference. On the other, a globally distributed network of GPU-equipped machines sits underutilized — gaming computers, workstations, and small data centers with excess capacity.
 
 Existing solutions (AWS, GCP, Lambda Labs) are centralized, expensive, and opaque. NeuraCoin proposes a permissionless alternative: a protocol layer where compute supply and demand meet directly, mediated by smart contracts and verified by a decentralized validator network.
 
@@ -40,126 +40,95 @@ NeuraCoin uses a novel **Proof of Compute (PoC)** mechanism. Rather than wastefu
 
 ## 3. Smart Contracts
 
-### 3.1 NRC Token (ERC-20)
-Standard ERC-20 token with additional staking and slashing logic.
+### 3.1 NRC Token
 
-### 3.2 Job Registry
-Stores job specifications, matches providers, manages escrow lifecycle.
+NRC is an ERC-20 compatible token with a fixed initial supply of 1,000,000,000 (one billion) units. The token contract exposes standard `transfer`, `approve`, and `transferFrom` semantics, plus protocol-specific hooks:
 
-### 3.3 Validator Registry
-Manages validator set, stake requirements, and slashing conditions.
+- `lockForJob(uint256 jobId, uint256 amount)` — moves tokens into the JobEscrow contract.
+- `releaseForJob(uint256 jobId, address provider)` — callable only by the JobRegistry on settlement.
+- `slash(address provider, uint256 amount)` — callable only by the Validator contract on proven misbehavior.
 
-### 3.4 Proof of Compute Verification Algorithm
+### 3.2 JobRegistry
 
-The Proof of Compute verification algorithm is the cryptographic core of NeuraCoin's trustless execution model. It ensures that compute providers have genuinely executed submitted jobs according to specification.
+The JobRegistry contract is the canonical source of truth for job state. Each job transitions through a finite state machine:
 
-#### 3.4.1 Proof Generation (Provider Side)
 
-When a compute provider executes a job, it generates a proof containing:
+PENDING -> ASSIGNED -> EXECUTING -> PROVED -> SETTLED
+                                          \-> DISPUTED -> SLASHED | SETTLED
 
-- **Job ID**: Unique identifier linking to the job specification contract
-- **Output Hash**: SHA-3(flattened output tensor)
-- **Execution Metadata**: GPU device fingerprint, wall-clock time, memory peak usage
-- **Intermediate Checkpoints**: Layer-wise activation hashes at specified intervals (for deep learning jobs)
-- **Nonce**: Random value to prevent replay attacks
 
-All proof components are signed by the provider's secp256k1 private key and submitted on-chain as a transaction to the ProofVerification contract.
+Job records include: requester address, provider address (once assigned), spec hash (IPFS CID), reward amount, deadline, and final proof hash.
 
-#### 3.4.2 Verification Process
+### 3.3 ValidatorSet
 
-Upon proof submission, the protocol executes a three-phase verification:
+Validators stake a minimum of 100,000 NRC to participate. The active validator set is rotated each epoch (~24 hours) using stake-weighted random selection. Validators earn a fee (default 2%) on every settled job they attest to. Equivocation or invalid attestations result in stake slashing.
 
-**Phase 1: Syntactic Validation**
-- Verify provider signature matches registered compute node
-- Check job ID exists and is not already settled
-- Validate proof timestamp is within acceptable submission window (within job deadline + 1 hour grace period)
-- Confirm provider stake is above minimum threshold
+### 3.4 JobEscrow
 
-**Phase 2: Stochastic Sampling Verification**
-- A randomized subset of validators (selected via VRF) re-execute the job independently
-- Each validator runs the job in an isolated Docker container with identical hyperparameters
-- Validators produce reference output tensors using deterministic seeds
-- Compare provider output against validator outputs using L2 norm distance:
-  ```
-  distance = sqrt(sum((provider_output - validator_output)^2)) / norm(validator_output)
-  ```
-- Accept if `distance < epsilon_tolerance` (default: 0.01 for float32 operations)
-- This accounts for hardware-specific floating point rounding variations
-
-**Phase 3: Consensus Aggregation**
-- Require supermajority (66.7%) of sampling validators to agree on validity
-- If consensus reached: mark proof as **VERIFIED** and proceed to settlement
-- If consensus not reached: slash provider stake by 5% and emit **INVALID** event
-- If fewer than 10% of validators respond within timeout (2 hours): pause job and require manual arbitration
-
-#### 3.4.3 Handling Hardware Variance
-
-Different GPUs (NVIDIA A100, RTX 4090, etc.) produce slightly different floating-point results due to:
-- Kernel implementation differences
-- Precision of transcendental functions
-- Tensor core precision modes
-
-NeuraCoin mitigates this via:
-- **Epsilon Calibration**: Per-device epsilon values stored on-chain (e.g., 0.008 for NVIDIA A100, 0.012 for consumer GPUs)
-- **Reduced Precision Mode**: Jobs can opt for float16 execution (stricter tolerance: 0.005)
-- **Reference Hardware**: Validators use a specified reference GPU model for their executions; provider outputs are normalized to equivalent reference device precision
-
-#### 3.4.4 Computational Integrity Bonds
-
-To prevent Sybil attacks where malicious providers submit many false proofs, providers must maintain:
-- **Minimum Stake**: 100 NRC per concurrent job (forfeit on slashing)
-- **Reputation Score**: Exponential moving average of successful verifications; new providers start at 0.5x validator sampling multiplier
-- **Timeout Penalty**: Failure to complete within deadline triggers 2% stake slash per day overdue
-
-#### 3.4.5 Validator Economics
-
-Validators earn rewards:
-- **Base Verification Fee**: 0.1 NRC per proof verified (paid from job requester's stake)
-- **Consensus Bonus**: +50% if their vote matches final consensus
-- **Slashing Dividend**: Slashed provider stake distributed equally among validators who voted correctly
-
-This incentivizes honest verification while penalizing false consensus.
+Holds locked NRC for the duration of a job. Releases funds atomically on settlement: provider receives reward minus validator fee, validators split the fee proportionally to stake, and the protocol treasury collects a small (0.5%) burn-or-fund toggle.
 
 ---
 
-## 4. Tokenomics
+## 4. Token Utility
 
-NRC total supply: 1 billion tokens.
+NRC has four primary uses inside the protocol:
 
-- 40% to compute providers (rewards pool)
-- 20% to protocol treasury (development & governance)
-- 15% to validators (verification rewards)
-- 15% to early backers
-- 10% to team (4-year vesting)
-
-Emissions follow a halvening schedule every 2 years.
+1. **Payment.** Job requesters pay providers in NRC. All compute is denominated in NRC.
+2. **Staking.** Providers stake NRC as collateral against the jobs they accept. Validators stake NRC to be eligible to attest.
+3. **Governance.** NRC holders vote on protocol parameters (validator fee, minimum stake, epsilon tolerance, epoch length) via a standard on-chain governor contract.
+4. **Slashing collateral.** Misbehaving providers and validators forfeit staked NRC, which is partially burned and partially redistributed to honest participants.
 
 ---
 
-## 5. Security Considerations
+## 5. Economic Model
 
-### 5.1 Attacks & Mitigations
+### 5.1 Supply
 
-**False Output Submission**: Provider submits incorrect computation result.
-- *Mitigation*: Validator re-execution with supermajority consensus; stake slashing.
+- Initial supply: 1,000,000,000 NRC, minted at genesis to the deployer-controlled treasury.
+- Distribution: 40% community/airdrop, 25% provider incentives (4-year vesting), 20% team (4-year vesting, 1-year cliff), 15% treasury.
+- No further inflation. Validator and provider rewards are sourced from job fees, not new issuance.
 
-**Sybil Attack**: Attacker registers many fake validators.
-- *Mitigation*: Minimum validator stake (10k NRC); time-lock on validator registration.
+### 5.2 Fees
 
-**Timing Side Channels**: Provider extracts information via execution time.
-- *Mitigation*: Jobs run in timing-oblivious containers; all providers see identical wall-clock allowance.
+Each settled job incurs:
 
-**Dataset Poisoning**: Requester supplies malicious dataset to extract provider secrets.
-- *Mitigation*: Providers execute in privacy-preserving containers (future: TEE integration); input data hashed and versioned.
+- Validator fee: 2% of reward (configurable via governance).
+- Protocol fee: 0.5% of reward, sent to the treasury.
+- Net to provider: 97.5% of the requester's posted reward.
 
-### 5.2 Future Enhancements
+### 5.3 Slashing
 
-- **Zero-Knowledge Proofs**: Replace sampling validators with ZK circuits to reduce verification overhead
-- **Hardware Attestation**: Integrate Intel SGX / ARM TrustZone for tamper-proof execution environments
-- **Cross-Chain Verification**: Enable compute verification on non-EVM chains via light clients
+- Provider produces invalid output: up to 100% of provider stake for that job is slashed.
+- Validator signs an attestation contradicted by supermajority: 10% of validator's total stake slashed.
+- Slashed amounts: 50% burned, 50% to the job's honest counterparty (or treasury if no counterparty applies).
 
 ---
 
-## 6. Conclusion
+## 6. Security Considerations
 
-NeuraCoin democratizes access to AI compute by replacing centralized intermediaries with a transparent, cryptographically-secured protocol. Proof of Compute ensures economic fin
+- **Sybil resistance.** Stake requirements for both providers and validators make Sybil attacks economically prohibitive.
+- **Output forgery.** Deterministic seed + reference re-execution by validators detects forged outputs within the epsilon tolerance.
+- **Data privacy.** v0.1 assumes public datasets and public model weights. Confidential workloads (TEE-based execution, ZK proofs of training) are deferred to v0.2.
+- **MEV / front-running.** Job assignment is performed by the protocol via commit-reveal scheduling to prevent providers from cherry-picking high-reward jobs.
+
+---
+
+## 7. Roadmap
+
+- **v0.1 (this document):** Core contracts (NRCToken, JobRegistry, ValidatorSet, JobEscrow), reference Python client, deterministic CPU-only workloads.
+- **v0.2:** GPU workload support, IPFS integration for job specs and outputs, governance contract.
+- **v0.3:** TEE-attested execution for confidential workloads, cross-chain bridge for multi-EVM deployment.
+- **v1.0:** ZK proofs of training step correctness, mainnet launch.
+
+---
+
+## 8. References
+
+- Ethereum Yellow Paper, Wood (2014).
+- ERC-20 Token Standard, Vogelsteller & Buterin (2015).
+- Gensyn Litepaper (2022) — comparable verifiable-compute primitives.
+- Truebit: A scalable verification solution for blockchains, Teutsch & Reitwießner (2017).
+
+---
+
+*This document is v0.1 and is intended as a normative reference for the initial NeuraCoin contracts and client implementations. Section numbering and contract names defined here are stable; subsequent revisions will be additive where possible.*
