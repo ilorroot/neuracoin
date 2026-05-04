@@ -48,7 +48,7 @@
         "test_file": "tests/test_registry.py",
         "type": "code",
         "description": "Implement a JobRegistry contract that allows submitters to post jobs with an NRC bounty (escrowed via the NeuraCoin token), nodes to claim jobs, and submitters or validators to mark jobs complete and release payment. Cover happy-path submission, claim, completion, and refund-on-timeout in tests.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t6",
