@@ -30,7 +30,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Specify total NRC supply, initial distribution (team, treasury, rewards pool, public), emission/inflation schedule for compute rewards, and fee/burn mechanics for job payments. Include a table of allocations and a vesting schedule that smart contracts in later tasks will encode.",
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "t4",
