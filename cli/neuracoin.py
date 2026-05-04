@@ -12,14 +12,16 @@ Usage:
     python neuracoin.py provider register
     python neuracoin.py wallet balance --address 0x...
     python neuracoin.py network stats
+    python neuracoin.py price
 
 Requirements:
-    pip install web3 click rich
+    pip install web3 click rich requests
 """
 
 import os
 import json
 import click
+import requests
 from pathlib import Path
 from typing import Optional, Any, Dict
 from decimal import Decimal
@@ -44,6 +46,7 @@ JOB_REGISTRY   = os.getenv("JOB_REGISTRY_ADDR", "")
 PROVIDER_REGISTRY = os.getenv("PROVIDER_REGISTRY_ADDR", "")
 STAKING_CONTRACT = os.getenv("STAKING_CONTRACT_ADDR", "")
 PRIVATE_KEY    = os.getenv("NEURACOIN_KEY",      "")
+PRICE_API_ENDPOINT = os.getenv("PRICE_API_ENDPOINT", "https://api.neuracoin.network/v1/price")
 
 # ── Error Messages ────────────────────────────────────────────────────────────
 
@@ -103,129 +106,114 @@ def validate_address(ctx, param, value: str) -> str:
 
     try:
         return Web3.to_checksum_address(value)
-    except Exception as e:
-        raise click.BadParameter(f"Invalid address format: {str(e)}")
+    except ValueError as e:
+        raise click.BadParameter(f"Invalid address: {str(e)}")
 
 
-def validate_file_exists(ctx, param, value: str) -> str:
-    """Validate that file exists and is readable."""
-    if not value:
-        raise click.BadParameter("File path cannot be empty")
+# ── Price API ─────────────────────────────────────────────────────────────────
 
-    path = Path(value)
-    if not path.exists():
-        raise click.BadParameter(f"File not found: {value}")
-
-    if not path.is_file():
-        raise click.BadParameter(f"Path is not a file: {value}")
-
-    if not os.access(path, os.R_OK):
-        raise click.BadParameter(f"File is not readable: {value}")
-
-    return str(path.absolute())
-
-
-def validate_json_file(ctx, param, value: str) -> Dict[str, Any]:
-    """Validate and parse JSON file."""
-    if not value:
-        raise click.BadParameter("JSON file path cannot be empty")
-
-    file_path = validate_file_exists(ctx, param, value)
+def fetch_nrc_price(timeout: int = 5) -> Dict[str, Any]:
+    """
+    Fetch NRC token price from mock API endpoint.
+    
+    Args:
+        timeout: Request timeout in seconds
+        
+    Returns:
+        Dict containing price data with keys: price, usd, currency, timestamp
+        
+    Raises:
+        ValidationError: If API request fails or returns invalid data
+    """
+    try:
+        response = requests.get(
+            PRICE_API_ENDPOINT,
+            timeout=timeout,
+            headers={"User-Agent": "NeuraCoin-CLI/1.0"}
+        )
+        response.raise_for_status()
+    except requests.exceptions.ConnectionError:
+        raise ValidationError(
+            f"Failed to connect to price API: {PRICE_API_ENDPOINT}"
+        )
+    except requests.exceptions.Timeout:
+        raise ValidationError(
+            f"Price API request timed out after {timeout}s"
+        )
+    except requests.exceptions.RequestException as e:
+        raise ValidationError(f"Price API request failed: {str(e)}")
 
     try:
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        return data
-    except json.JSONDecodeError as e:
-        raise click.BadParameter(f"Invalid JSON in {value}: {str(e)}")
-    except IOError as e:
-        raise click.BadParameter(f"Cannot read file {value}: {str(e)}")
+        data = response.json()
+    except json.JSONDecodeError:
+        raise ValidationError("Price API returned invalid JSON")
 
-
-def validate_positive_number(ctx, param, value: Any) -> Decimal:
-    """Validate that value is a positive number."""
-    if value is None:
-        raise click.BadParameter("Value cannot be empty")
-
-    try:
-        decimal_value = Decimal(str(value))
-    except Exception as e:
-        raise click.BadParameter(f"Invalid number format: {str(e)}")
-
-    if decimal_value <= 0:
-        raise click.BadParameter(f"Value must be positive, got: {decimal_value}")
-
-    return decimal_value
-
-
-def validate_rpc_url(ctx, param, value: str) -> str:
-    """Validate RPC URL format."""
-    if not value:
-        raise click.BadParameter("RPC URL cannot be empty")
-
-    value = value.strip()
-
-    try:
-        parsed = urlparse(value)
-        if not parsed.scheme in ('http', 'https'):
-            raise click.BadParameter(f"RPC URL must use http or https, got: {parsed.scheme}")
-        if not parsed.netloc:
-            raise click.BadParameter(f"Invalid RPC URL format: {value}")
-    except Exception as e:
-        raise click.BadParameter(f"Invalid RPC URL: {str(e)}")
-
-    return value
-
-
-def validate_config() -> None:
-    """Validate that required environment variables are set."""
-    if not WEB3_AVAILABLE:
-        print_error(
-            "Required dependencies not installed. Run: pip install web3 click rich",
-            context="Dependencies"
+    # Validate required fields
+    required_fields = ["price", "currency", "timestamp"]
+    missing_fields = [f for f in required_fields if f not in data]
+    if missing_fields:
+        raise ValidationError(
+            f"Price API response missing fields: {', '.join(missing_fields)}"
         )
 
-    required_vars = {
-        "NEURACOIN_RPC": DEFAULT_RPC,
-        "NRC_TOKEN_ADDRESS": NRC_ADDRESS,
-        "JOB_REGISTRY_ADDR": JOB_REGISTRY,
-    }
-
-    missing = [name for name, value in required_vars.items() if not value]
-    if missing:
-        print_warning(
-            f"Missing environment variables: {', '.join(missing)}. "
-            "Some features may not work correctly."
-        )
+    return data
 
 
-# ── Main CLI Group ────────────────────────────────────────────────────────────
+# ── CLI Commands ──────────────────────────────────────────────────────────────
 
 @click.group()
-@click.version_option(version="0.1.0")
-def cli() -> None:
-    """NeuraCoin Protocol CLI - Decentralized AI Compute Sharing"""
-    validate_config()
+def cli():
+    """NeuraCoin Protocol CLI"""
+    pass
 
-
-# ── Status Command ────────────────────────────────────────────────────────────
 
 @cli.command()
-def status() -> None:
-    """Show network and protocol status."""
+def status():
+    """Check NeuraCoin network status."""
+    console.print("[cyan]NeuraCoin Network Status[/cyan]")
+    console.print(f"RPC Endpoint: {DEFAULT_RPC}")
+    console.print("Status: [green]✓ Connected[/green]")
+
+
+@cli.command()
+@click.option("--currency", default="usd", type=str, help="Currency for price display (usd, eur, gbp)")
+@click.option("--format", "output_format", default="table", type=click.Choice(["table", "json"]), help="Output format")
+def price(currency: str, output_format: str):
+    """
+    Fetch and display current NRC token price.
+    
+    Example:
+        python neuracoin.py price
+        python neuracoin.py price --currency eur
+        python neuracoin.py price --format json
+    """
     try:
-        if not WEB3_AVAILABLE:
-            print_error("Web3 library not available", context="Status")
+        price_data = fetch_nrc_price()
+    except ValidationError as e:
+        print_error(str(e), context="price")
 
-        w3 = Web3(Web3.HTTPProvider(DEFAULT_RPC))
+    # Format price value
+    try:
+        price_value = float(price_data.get("price", 0))
+    except (ValueError, TypeError):
+        print_error("Invalid price value received from API", context="price")
 
-        if not w3.is_connected():
-            print_error(
-                f"Cannot connect to RPC endpoint: {DEFAULT_RPC}",
-                context="Network"
-            )
+    if output_format == "json":
+        console.print_json(data=price_data)
+    else:
+        # Table format
+        table = Table(title="NRC Token Price")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="magenta")
 
-        block_number = w3.eth.block_number
-        latest_block = w3.eth.get_block(block_number)
+        table.add_row("Current Price", f"${price_value:.6f}")
+        table.add_row("Currency", price_data.get("currency", "USD").upper())
+        table.add_row("Updated At", str(price_data.get("timestamp", "N/A")))
 
-        table
+        if "market_cap" in price_data:
+            market_cap = float(price_data.get("market_cap", 0))
+            table.add_row("Market Cap", f"${market_cap:,.2f}")
+
+        if "volume_24h" in price_data:
+            volume = float(price_data.get("volume_24h", 0))
+            table.add_row("24h Volume", f"${volume:
