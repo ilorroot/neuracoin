@@ -84,7 +84,7 @@
         "test_file": null,
         "type": "config",
         "description": "Pin versions for web3, eth-brownie or hardhat-shim, click, pytest, and any HTTP/JSON libraries used by the node client and tests. Ensure versions are mutually compatible and reproducible for CI.",
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "t10",
