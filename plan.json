@@ -75,7 +75,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Create a Click-based CLI exposing subcommands: 'submit-job', 'check-balance', 'list-jobs', 'start-node'. Each subcommand should call into the appropriate web3/node_client helper. Tests use Click's CliRunner with mocked backends to verify argument parsing and dispatch.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t9",
