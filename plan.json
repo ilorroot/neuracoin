@@ -93,7 +93,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Record the v0.1 deliverables (whitepaper, tokenomics, token + registry + governance contracts, CLI/node client scaffolding) under a dated 0.1.0 heading. Note known gaps (no testnet deployment, no audit) so the next version can target them.",
-        "status": "pending"
+        "status": "done"
       }
     ]
   }
