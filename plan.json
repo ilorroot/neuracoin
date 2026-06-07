@@ -1,99 +1,196 @@
 {
-  "current_version": "0.1",
-  "history": [],
+  "current_version": "0.2",
+  "history": [
+    {
+      "version": "0.1",
+      "goal": "Establish foundational protocol documentation, tokenomics, and core smart contracts to prepare for testnet readiness.",
+      "tasks": [
+        {
+          "id": "t1",
+          "title": "Draft NeuraCoin whitepaper",
+          "file": "docs/whitepaper.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Write the v0.1 whitepaper covering the problem statement, NeuraCoin protocol overview, actors (GPU providers, job submitters, validators), job lifecycle, and NRC token utility. Keep it ~3-5 pages with clear section headings so later contracts and clients can reference it.",
+          "status": "done"
+        },
+        {
+          "id": "t2",
+          "title": "Specify protocol architecture",
+          "file": "docs/architecture.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Document the system architecture: on-chain components (NRC token, JobRegistry, Governance), off-chain components (node client, dashboard, CLI), and the data/message flow between them. Include a component diagram in ASCII or Mermaid and define interfaces that downstream tasks will implement.",
+          "status": "blocked"
+        },
+        {
+          "id": "t3",
+          "title": "Define tokenomics model",
+          "file": "docs/tokenomics.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Specify total NRC supply, initial distribution (team, treasury, rewards pool, public), emission/inflation schedule for compute rewards, and fee/burn mechanics for job payments. Include a table of allocations and a vesting schedule that smart contracts in later tasks will encode.",
+          "status": "done"
+        },
+        {
+          "id": "t4",
+          "title": "Implement NRC ERC-20 token contract",
+          "file": "contracts/NeuraCoin.sol",
+          "test_file": "tests/test_token.py",
+          "type": "code",
+          "description": "Implement the NRC ERC-20 token using OpenZeppelin: name 'NeuraCoin', symbol 'NRC', 18 decimals, fixed initial supply minted to a treasury address, owner-controlled minter role for emissions. Write Brownie/Web3.py tests covering deployment, transfers, allowances, and minter access control.",
+          "status": "blocked"
+        },
+        {
+          "id": "t5",
+          "title": "Implement JobRegistry contract",
+          "file": "contracts/JobRegistry.sol",
+          "test_file": "tests/test_registry.py",
+          "type": "code",
+          "description": "Implement a JobRegistry contract that allows submitters to post jobs with an NRC bounty (escrowed via the NeuraCoin token), nodes to claim jobs, and submitters or validators to mark jobs complete and release payment. Cover happy-path submission, claim, completion, and refund-on-timeout in tests.",
+          "status": "blocked"
+        },
+        {
+          "id": "t6",
+          "title": "Scaffold Governance contract",
+          "file": "contracts/Governance.sol",
+          "test_file": "tests/test_governance.py",
+          "type": "code",
+          "description": "Add a minimal Governance contract that holds parameters (job timeout, protocol fee bps, minimum bounty) and allows the owner to update them, emitting events. This is a stub for future DAO control; tests should verify access control and parameter updates.",
+          "status": "blocked"
+        },
+        {
+          "id": "t7",
+          "title": "Build node client job-polling loop",
+          "file": "cli/node_client.py",
+          "test_file": "tests/test_node_client.py",
+          "type": "code",
+          "description": "Implement a Python node client that connects to an Ethereum RPC, polls JobRegistry for open jobs, and prints/claims jobs matching the node's GPU profile (mock execution for now). Use web3.py and provide a unit test that mocks the contract interface to verify polling and claim logic.",
+          "status": "blocked"
+        },
+        {
+          "id": "t8",
+          "title": "Build neuracoin CLI entrypoint",
+          "file": "cli/neuracoin.py",
+          "test_file": "tests/test_cli.py",
+          "type": "code",
+          "description": "Create a Click-based CLI exposing subcommands: 'submit-job', 'check-balance', 'list-jobs', 'start-node'. Each subcommand should call into the appropriate web3/node_client helper. Tests use Click's CliRunner with mocked backends to verify argument parsing and dispatch.",
+          "status": "blocked"
+        },
+        {
+          "id": "t9",
+          "title": "Pin Python dependencies",
+          "file": "requirements.txt",
+          "test_file": null,
+          "type": "config",
+          "description": "Pin versions for web3, eth-brownie or hardhat-shim, click, pytest, and any HTTP/JSON libraries used by the node client and tests. Ensure versions are mutually compatible and reproducible for CI.",
+          "status": "done"
+        },
+        {
+          "id": "t10",
+          "title": "Update roadmap and changelog for v0.1",
+          "file": "CHANGELOG.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Record the v0.1 deliverables (whitepaper, tokenomics, token + registry + governance contracts, CLI/node client scaffolding) under a dated 0.1.0 heading. Note known gaps (no testnet deployment, no audit) so the next version can target them.",
+          "status": "done"
+        }
+      ]
+    }
+  ],
   "current": {
-    "version": "0.1",
-    "goal": "Establish foundational protocol documentation, tokenomics, and core smart contracts to prepare for testnet readiness.",
+    "version": "0.2",
+    "goal": "Harden the core smart contracts and Python client tooling so the protocol is ready for testnet integration.",
     "tasks": [
       {
         "id": "t1",
-        "title": "Draft NeuraCoin whitepaper",
-        "file": "docs/whitepaper.md",
-        "test_file": null,
-        "type": "docs",
-        "description": "Write the v0.1 whitepaper covering the problem statement, NeuraCoin protocol overview, actors (GPU providers, job submitters, validators), job lifecycle, and NRC token utility. Keep it ~3-5 pages with clear section headings so later contracts and clients can reference it.",
-        "status": "done"
+        "title": "Add NRC token unit tests for emitReward and pause flows",
+        "file": "tests/test_token.py",
+        "test_file": "tests/test_token.py",
+        "type": "code",
+        "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with coverage for emitReward (only-emitter access control, 400M compute pool cap, lazy minting) and pause/unpause behavior on transfers. Mirror the public surface declared in contracts/NeuraCoin.sol (emitReward, setRewardEmitter, pause).",
+        "status": "pending"
       },
       {
         "id": "t2",
-        "title": "Specify protocol architecture",
-        "file": "docs/architecture.md",
-        "test_file": null,
-        "type": "docs",
-        "description": "Document the system architecture: on-chain components (NRC token, JobRegistry, Governance), off-chain components (node client, dashboard, CLI), and the data/message flow between them. Include a component diagram in ASCII or Mermaid and define interfaces that downstream tasks will implement.",
-        "status": "blocked"
+        "title": "Add JobRegistry dispute and provider-stake tests",
+        "file": "tests/test_registry.py",
+        "test_file": "tests/test_registry.py",
+        "type": "code",
+        "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements and flagDispute resolution paths defined in contracts/JobRegistry.sol. Cover happy path dispute flagging, unauthorized dispute attempts, and escrow handling on disputed jobs.",
+        "status": "pending"
       },
       {
         "id": "t3",
-        "title": "Define tokenomics model",
-        "file": "docs/tokenomics.md",
-        "test_file": null,
-        "type": "docs",
-        "description": "Specify total NRC supply, initial distribution (team, treasury, rewards pool, public), emission/inflation schedule for compute rewards, and fee/burn mechanics for job payments. Include a table of allocations and a vesting schedule that smart contracts in later tasks will encode.",
-        "status": "done"
-      },
-      {
-        "id": "t4",
-        "title": "Implement NRC ERC-20 token contract",
-        "file": "contracts/NeuraCoin.sol",
-        "test_file": "tests/test_token.py",
-        "type": "code",
-        "description": "Implement the NRC ERC-20 token using OpenZeppelin: name 'NeuraCoin', symbol 'NRC', 18 decimals, fixed initial supply minted to a treasury address, owner-controlled minter role for emissions. Write Brownie/Web3.py tests covering deployment, transfers, allowances, and minter access control.",
-        "status": "blocked"
-      },
-      {
-        "id": "t5",
-        "title": "Implement JobRegistry contract",
-        "file": "contracts/JobRegistry.sol",
-        "test_file": "tests/test_registry.py",
-        "type": "code",
-        "description": "Implement a JobRegistry contract that allows submitters to post jobs with an NRC bounty (escrowed via the NeuraCoin token), nodes to claim jobs, and submitters or validators to mark jobs complete and release payment. Cover happy-path submission, claim, completion, and refund-on-timeout in tests.",
-        "status": "blocked"
-      },
-      {
-        "id": "t6",
-        "title": "Scaffold Governance contract",
+        "title": "Implement Governance proposal execution logic",
         "file": "contracts/Governance.sol",
         "test_file": "tests/test_governance.py",
         "type": "code",
-        "description": "Add a minimal Governance contract that holds parameters (job timeout, protocol fee bps, minimum bounty) and allows the owner to update them, emitting events. This is a stub for future DAO control; tests should verify access control and parameter updates.",
-        "status": "blocked"
+        "description": "Replace the stub execute() in contracts/Governance.sol with real state-change logic that calls a target contract with stored calldata once a proposal has passed quorum and timelock. Keep createProposal/castVote/cancelProposal/queueProposal APIs intact and emit ProposalExecuted with the call result.",
+        "status": "pending"
       },
       {
-        "id": "t7",
-        "title": "Build node client job-polling loop",
+        "id": "t4",
+        "title": "Add governance test suite",
+        "file": "tests/test_governance.py",
+        "test_file": "tests/test_governance.py",
+        "type": "code",
+        "description": "Create a pytest suite mirroring the style of tests/test_token.py and tests/test_registry.py that exercises proposal creation, voting weight, quorum, queueing, cancellation, and execution. Use a mock governance harness so tests run without an EVM.",
+        "status": "pending"
+      },
+      {
+        "id": "t5",
+        "title": "Implement real polling loop in node client",
         "file": "cli/node_client.py",
         "test_file": "tests/test_node_client.py",
         "type": "code",
-        "description": "Implement a Python node client that connects to an Ethereum RPC, polls JobRegistry for open jobs, and prints/claims jobs matching the node's GPU profile (mock execution for now). Use web3.py and provide a unit test that mocks the contract interface to verify polling and claim logic.",
-        "status": "blocked"
+        "description": "Refactor cli/node_client.py so ComputeNodeClient.poll_jobs() and run() use an injectable job-source interface (default: HTTP/RPC stub) instead of hard-coded mock data, and track NodeStats across iterations. Preserve the existing Job and NodeStats dataclasses and CLI entrypoint.",
+        "status": "pending"
       },
       {
-        "id": "t8",
-        "title": "Build neuracoin CLI entrypoint",
+        "id": "t6",
+        "title": "Add tests for node client polling and stats",
+        "file": "tests/test_node_client.py",
+        "test_file": "tests/test_node_client.py",
+        "type": "code",
+        "description": "Add a pytest module that injects a fake job source into ComputeNodeClient from cli/node_client.py and verifies job execution, earnings accumulation in NodeStats, and graceful shutdown after a bounded number of poll iterations.",
+        "status": "pending"
+      },
+      {
+        "id": "t7",
+        "title": "Wire up neuracoin CLI subcommands",
         "file": "cli/neuracoin.py",
         "test_file": "tests/test_cli.py",
         "type": "code",
-        "description": "Create a Click-based CLI exposing subcommands: 'submit-job', 'check-balance', 'list-jobs', 'start-node'. Each subcommand should call into the appropriate web3/node_client helper. Tests use Click's CliRunner with mocked backends to verify argument parsing and dispatch.",
-        "status": "blocked"
+        "description": "Complete cli/neuracoin.py so the documented subcommands (status, price, jobs, provider) parse arguments and dispatch to handler functions reading RPC/contract addresses from environment variables. Return clean exit codes and JSON-printable output to enable scripting.",
+        "status": "pending"
+      },
+      {
+        "id": "t8",
+        "title": "Add CLI argument-parsing tests",
+        "file": "tests/test_cli.py",
+        "test_file": "tests/test_cli.py",
+        "type": "code",
+        "description": "Create tests/test_cli.py that invokes cli/neuracoin.py's argument parser for each subcommand (status, price, jobs, provider) using monkeypatched handlers, asserting correct dispatch and that missing env vars produce a clear error.",
+        "status": "pending"
       },
       {
         "id": "t9",
-        "title": "Pin Python dependencies",
-        "file": "requirements.txt",
+        "title": "Document deployment and testnet bring-up",
+        "file": "docs/deployment.md",
         "test_file": null,
-        "type": "config",
-        "description": "Pin versions for web3, eth-brownie or hardhat-shim, click, pytest, and any HTTP/JSON libraries used by the node client and tests. Ensure versions are mutually compatible and reproducible for CI.",
-        "status": "done"
+        "type": "docs",
+        "description": "Write a new docs/deployment.md describing how to deploy NeuraCoin.sol, JobRegistry.sol, and Governance.sol to Sepolia, wire setRewardEmitter between token and registry, and configure the CLI/node client via environment variables. Cross-reference docs/architecture.md and docs/roadmap.md M1.4.",
+        "status": "pending"
       },
       {
         "id": "t10",
-        "title": "Update roadmap and changelog for v0.1",
+        "title": "Update changelog for v0.2",
         "file": "CHANGELOG.md",
         "test_file": null,
         "type": "docs",
-        "description": "Record the v0.1 deliverables (whitepaper, tokenomics, token + registry + governance contracts, CLI/node client scaffolding) under a dated 0.1.0 heading. Note known gaps (no testnet deployment, no audit) so the next version can target them.",
-        "status": "done"
+        "description": "Append a v0.2 section to CHANGELOG.md summarizing governance execution, expanded contract tests, node client polling, CLI wiring, and the new deployment guide. Follow the format established in the v0.1 entry.",
+        "status": "pending"
       }
     ]
   }
