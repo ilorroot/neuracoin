@@ -136,7 +136,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Create a pytest suite mirroring the style of tests/test_token.py and tests/test_registry.py that exercises proposal creation, voting weight, quorum, queueing, cancellation, and execution. Use a mock governance harness so tests run without an EVM.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t5",
