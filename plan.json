@@ -127,7 +127,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Replace the stub execute() in contracts/Governance.sol with real state-change logic that calls a target contract with stored calldata once a proposal has passed quorum and timelock. Keep createProposal/castVote/cancelProposal/queueProposal APIs intact and emit ProposalExecuted with the call result.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t4",
