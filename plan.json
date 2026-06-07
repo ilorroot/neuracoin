@@ -118,7 +118,7 @@
         "test_file": "tests/test_registry.py",
         "type": "code",
         "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements and flagDispute resolution paths defined in contracts/JobRegistry.sol. Cover happy path dispute flagging, unauthorized dispute attempts, and escrow handling on disputed jobs.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t3",
