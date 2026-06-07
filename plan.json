@@ -109,7 +109,7 @@
         "test_file": "tests/test_token.py",
         "type": "code",
         "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with coverage for emitReward (only-emitter access control, 400M compute pool cap, lazy minting) and pause/unpause behavior on transfers. Mirror the public surface declared in contracts/NeuraCoin.sol (emitReward, setRewardEmitter, pause).",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t2",
