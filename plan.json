@@ -172,7 +172,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Create tests/test_cli.py that invokes cli/neuracoin.py's argument parser for each subcommand (status, price, jobs, provider) using monkeypatched handlers, asserting correct dispatch and that missing env vars produce a clear error.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t9",
