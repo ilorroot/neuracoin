@@ -154,7 +154,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "Add a pytest module that injects a fake job source into ComputeNodeClient from cli/node_client.py and verifies job execution, earnings accumulation in NodeStats, and graceful shutdown after a bounded number of poll iterations.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t7",
