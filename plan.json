@@ -145,7 +145,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "Refactor cli/node_client.py so ComputeNodeClient.poll_jobs() and run() use an injectable job-source interface (default: HTTP/RPC stub) instead of hard-coded mock data, and track NodeStats across iterations. Preserve the existing Job and NodeStats dataclasses and CLI entrypoint.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t6",
