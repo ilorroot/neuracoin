@@ -181,7 +181,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Write a new docs/deployment.md describing how to deploy NeuraCoin.sol, JobRegistry.sol, and Governance.sol to Sepolia, wire setRewardEmitter between token and registry, and configure the CLI/node client via environment variables. Cross-reference docs/architecture.md and docs/roadmap.md M1.4.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t10",
