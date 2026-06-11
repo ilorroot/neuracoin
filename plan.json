@@ -163,7 +163,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Complete cli/neuracoin.py so the documented subcommands (status, price, jobs, provider) parse arguments and dispatch to handler functions reading RPC/contract addresses from environment variables. Return clean exit codes and JSON-printable output to enable scripting.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t8",
