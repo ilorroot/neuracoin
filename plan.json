@@ -190,7 +190,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Append a v0.2 section to CHANGELOG.md summarizing governance execution, expanded contract tests, node client polling, CLI wiring, and the new deployment guide. Follow the format established in the v0.1 entry.",
-        "status": "pending"
+        "status": "done"
       }
     ]
   }
