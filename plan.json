@@ -223,7 +223,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Replace the stub execute() in contracts/Governance.sol with real logic: enforce queued state + timelock, mark proposal Executed, perform low-level calls to target/calldata arrays stored on the proposal, and revert on any failed call. Keep createProposal/castVote/cancelProposal/queueProposal signatures stable.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t4",
