@@ -205,7 +205,7 @@
         "test_file": "tests/test_token.py",
         "type": "code",
         "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with tests covering the emitReward path (only callable by rewardEmitter, respects 400M compute rewards cap, mints to provider) and pause/unpause flows (transfers blocked while paused, only owner can pause). Reference NeuraCoin.sol's emitReward, setRewardEmitter, and pause functions.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t2",
