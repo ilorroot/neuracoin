@@ -232,7 +232,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Create a pytest suite with a MockGovernance contract covering proposal creation, voting (for/against/abstain with NRC weight), quorum and threshold checks, queueing with timelock, and execution success/failure. Follow the mock-contract pattern from tests/test_token.py.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t5",
