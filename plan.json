@@ -214,7 +214,7 @@
         "test_file": "tests/test_registry.py",
         "type": "code",
         "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements (insufficient stake reverts, stake locked on assignment) and flagDispute flows (only requester/provider can flag, escrow held until resolution, state transitions to DISPUTED). Mirror the mock-contract style already used in the file.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t3",
