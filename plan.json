@@ -1,5 +1,5 @@
 {
-  "current_version": "0.2",
+  "current_version": "0.3",
   "history": [
     {
       "version": "0.1",
@@ -96,20 +96,116 @@
           "status": "done"
         }
       ]
+    },
+    {
+      "version": "0.2",
+      "goal": "Harden the core smart contracts and Python client tooling so the protocol is ready for testnet integration.",
+      "tasks": [
+        {
+          "id": "t1",
+          "title": "Add NRC token unit tests for emitReward and pause flows",
+          "file": "tests/test_token.py",
+          "test_file": "tests/test_token.py",
+          "type": "code",
+          "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with coverage for emitReward (only-emitter access control, 400M compute pool cap, lazy minting) and pause/unpause behavior on transfers. Mirror the public surface declared in contracts/NeuraCoin.sol (emitReward, setRewardEmitter, pause).",
+          "status": "blocked"
+        },
+        {
+          "id": "t2",
+          "title": "Add JobRegistry dispute and provider-stake tests",
+          "file": "tests/test_registry.py",
+          "test_file": "tests/test_registry.py",
+          "type": "code",
+          "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements and flagDispute resolution paths defined in contracts/JobRegistry.sol. Cover happy path dispute flagging, unauthorized dispute attempts, and escrow handling on disputed jobs.",
+          "status": "blocked"
+        },
+        {
+          "id": "t3",
+          "title": "Implement Governance proposal execution logic",
+          "file": "contracts/Governance.sol",
+          "test_file": "tests/test_governance.py",
+          "type": "code",
+          "description": "Replace the stub execute() in contracts/Governance.sol with real state-change logic that calls a target contract with stored calldata once a proposal has passed quorum and timelock. Keep createProposal/castVote/cancelProposal/queueProposal APIs intact and emit ProposalExecuted with the call result.",
+          "status": "blocked"
+        },
+        {
+          "id": "t4",
+          "title": "Add governance test suite",
+          "file": "tests/test_governance.py",
+          "test_file": "tests/test_governance.py",
+          "type": "code",
+          "description": "Create a pytest suite mirroring the style of tests/test_token.py and tests/test_registry.py that exercises proposal creation, voting weight, quorum, queueing, cancellation, and execution. Use a mock governance harness so tests run without an EVM.",
+          "status": "blocked"
+        },
+        {
+          "id": "t5",
+          "title": "Implement real polling loop in node client",
+          "file": "cli/node_client.py",
+          "test_file": "tests/test_node_client.py",
+          "type": "code",
+          "description": "Refactor cli/node_client.py so ComputeNodeClient.poll_jobs() and run() use an injectable job-source interface (default: HTTP/RPC stub) instead of hard-coded mock data, and track NodeStats across iterations. Preserve the existing Job and NodeStats dataclasses and CLI entrypoint.",
+          "status": "blocked"
+        },
+        {
+          "id": "t6",
+          "title": "Add tests for node client polling and stats",
+          "file": "tests/test_node_client.py",
+          "test_file": "tests/test_node_client.py",
+          "type": "code",
+          "description": "Add a pytest module that injects a fake job source into ComputeNodeClient from cli/node_client.py and verifies job execution, earnings accumulation in NodeStats, and graceful shutdown after a bounded number of poll iterations.",
+          "status": "blocked"
+        },
+        {
+          "id": "t7",
+          "title": "Wire up neuracoin CLI subcommands",
+          "file": "cli/neuracoin.py",
+          "test_file": "tests/test_cli.py",
+          "type": "code",
+          "description": "Complete cli/neuracoin.py so the documented subcommands (status, price, jobs, provider) parse arguments and dispatch to handler functions reading RPC/contract addresses from environment variables. Return clean exit codes and JSON-printable output to enable scripting.",
+          "status": "blocked"
+        },
+        {
+          "id": "t8",
+          "title": "Add CLI argument-parsing tests",
+          "file": "tests/test_cli.py",
+          "test_file": "tests/test_cli.py",
+          "type": "code",
+          "description": "Create tests/test_cli.py that invokes cli/neuracoin.py's argument parser for each subcommand (status, price, jobs, provider) using monkeypatched handlers, asserting correct dispatch and that missing env vars produce a clear error.",
+          "status": "blocked"
+        },
+        {
+          "id": "t9",
+          "title": "Document deployment and testnet bring-up",
+          "file": "docs/deployment.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Write a new docs/deployment.md describing how to deploy NeuraCoin.sol, JobRegistry.sol, and Governance.sol to Sepolia, wire setRewardEmitter between token and registry, and configure the CLI/node client via environment variables. Cross-reference docs/architecture.md and docs/roadmap.md M1.4.",
+          "status": "blocked"
+        },
+        {
+          "id": "t10",
+          "title": "Update changelog for v0.2",
+          "file": "CHANGELOG.md",
+          "test_file": null,
+          "type": "docs",
+          "description": "Append a v0.2 section to CHANGELOG.md summarizing governance execution, expanded contract tests, node client polling, CLI wiring, and the new deployment guide. Follow the format established in the v0.1 entry.",
+          "status": "done"
+        }
+      ]
     }
   ],
   "current": {
-    "version": "0.2",
-    "goal": "Harden the core smart contracts and Python client tooling so the protocol is ready for testnet integration.",
+    "version": "0.3",
+    "goal": "Complete contract hardening, finish Python client tooling, and prepare testnet bring-up documentation.",
     "tasks": [
       {
         "id": "t1",
-        "title": "Add NRC token unit tests for emitReward and pause flows",
+        "title": "Add NRC token tests for emitReward and pause flows",
         "file": "tests/test_token.py",
         "test_file": "tests/test_token.py",
         "type": "code",
-        "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with coverage for emitReward (only-emitter access control, 400M compute pool cap, lazy minting) and pause/unpause behavior on transfers. Mirror the public surface declared in contracts/NeuraCoin.sol (emitReward, setRewardEmitter, pause).",
-        "status": "blocked"
+        "description": "Extend the existing MockNRCToken-based suite in tests/test_token.py with tests covering the emitReward path (only callable by rewardEmitter, respects 400M compute rewards cap, mints to provider) and pause/unpause flows (transfers blocked while paused, only owner can pause). Reference NeuraCoin.sol's emitReward, setRewardEmitter, and pause functions.",
+        "status": "pending"
       },
       {
         "id": "t2",
@@ -117,8 +213,8 @@
         "file": "tests/test_registry.py",
         "test_file": "tests/test_registry.py",
         "type": "code",
-        "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements and flagDispute resolution paths defined in contracts/JobRegistry.sol. Cover happy path dispute flagging, unauthorized dispute attempts, and escrow handling on disputed jobs.",
-        "status": "blocked"
+        "description": "Augment tests/test_registry.py with cases for registerProvider stake requirements (insufficient stake reverts, stake locked on assignment) and flagDispute flows (only requester/provider can flag, escrow held until resolution, state transitions to DISPUTED). Mirror the mock-contract style already used in the file.",
+        "status": "pending"
       },
       {
         "id": "t3",
@@ -126,8 +222,8 @@
         "file": "contracts/Governance.sol",
         "test_file": "tests/test_governance.py",
         "type": "code",
-        "description": "Replace the stub execute() in contracts/Governance.sol with real state-change logic that calls a target contract with stored calldata once a proposal has passed quorum and timelock. Keep createProposal/castVote/cancelProposal/queueProposal APIs intact and emit ProposalExecuted with the call result.",
-        "status": "blocked"
+        "description": "Replace the stub execute() in contracts/Governance.sol with real logic: enforce queued state + timelock, mark proposal Executed, perform low-level calls to target/calldata arrays stored on the proposal, and revert on any failed call. Keep createProposal/castVote/cancelProposal/queueProposal signatures stable.",
+        "status": "pending"
       },
       {
         "id": "t4",
@@ -135,8 +231,8 @@
         "file": "tests/test_governance.py",
         "test_file": "tests/test_governance.py",
         "type": "code",
-        "description": "Create a pytest suite mirroring the style of tests/test_token.py and tests/test_registry.py that exercises proposal creation, voting weight, quorum, queueing, cancellation, and execution. Use a mock governance harness so tests run without an EVM.",
-        "status": "blocked"
+        "description": "Create a pytest suite with a MockGovernance contract covering proposal creation, voting (for/against/abstain with NRC weight), quorum and threshold checks, queueing with timelock, and execution success/failure. Follow the mock-contract pattern from tests/test_token.py.",
+        "status": "pending"
       },
       {
         "id": "t5",
@@ -144,8 +240,8 @@
         "file": "cli/node_client.py",
         "test_file": "tests/test_node_client.py",
         "type": "code",
-        "description": "Refactor cli/node_client.py so ComputeNodeClient.poll_jobs() and run() use an injectable job-source interface (default: HTTP/RPC stub) instead of hard-coded mock data, and track NodeStats across iterations. Preserve the existing Job and NodeStats dataclasses and CLI entrypoint.",
-        "status": "blocked"
+        "description": "Replace the mock polling in cli/node_client.py with a real loop that queries the JobRegistry via an injected client/provider for assigned jobs, executes a pluggable job handler, submits completion, and updates NodeStats. Keep ComputeNodeClient/Job/NodeStats public API stable and make network and handler dependencies injectable for testing.",
+        "status": "pending"
       },
       {
         "id": "t6",
@@ -153,8 +249,8 @@
         "file": "tests/test_node_client.py",
         "test_file": "tests/test_node_client.py",
         "type": "code",
-        "description": "Add a pytest module that injects a fake job source into ComputeNodeClient from cli/node_client.py and verifies job execution, earnings accumulation in NodeStats, and graceful shutdown after a bounded number of poll iterations.",
-        "status": "blocked"
+        "description": "New pytest suite for ComputeNodeClient using a fake registry client: covers single-iteration poll picks up a job, executes the handler, records earnings into NodeStats, handles empty-queue iterations, and surfaces handler exceptions without crashing the loop.",
+        "status": "pending"
       },
       {
         "id": "t7",
@@ -162,8 +258,8 @@
         "file": "cli/neuracoin.py",
         "test_file": "tests/test_cli.py",
         "type": "code",
-        "description": "Complete cli/neuracoin.py so the documented subcommands (status, price, jobs, provider) parse arguments and dispatch to handler functions reading RPC/contract addresses from environment variables. Return clean exit codes and JSON-printable output to enable scripting.",
-        "status": "blocked"
+        "description": "Flesh out cli/neuracoin.py with argparse subcommands (status, price, jobs submit/list, provider register/list, wallet balance) dispatching to handler functions that read RPC_URL and contract addresses from env vars. Each subcommand should print structured output and return a non-zero exit code on error.",
+        "status": "pending"
       },
       {
         "id": "t8",
@@ -171,8 +267,8 @@
         "file": "tests/test_cli.py",
         "test_file": "tests/test_cli.py",
         "type": "code",
-        "description": "Create tests/test_cli.py that invokes cli/neuracoin.py's argument parser for each subcommand (status, price, jobs, provider) using monkeypatched handlers, asserting correct dispatch and that missing env vars produce a clear error.",
-        "status": "blocked"
+        "description": "Pytest suite invoking the cli/neuracoin.py parser/main with monkeypatched handlers to assert: --help exits 0, unknown subcommand exits non-zero, each subcommand routes to the correct handler with parsed args, and missing required args produce a clear error.",
+        "status": "pending"
       },
       {
         "id": "t9",
@@ -180,17 +276,17 @@
         "file": "docs/deployment.md",
         "test_file": null,
         "type": "docs",
-        "description": "Write a new docs/deployment.md describing how to deploy NeuraCoin.sol, JobRegistry.sol, and Governance.sol to Sepolia, wire setRewardEmitter between token and registry, and configure the CLI/node client via environment variables. Cross-reference docs/architecture.md and docs/roadmap.md M1.4.",
-        "status": "blocked"
+        "description": "Write docs/deployment.md describing prerequisites, contract deploy order (NeuraCoin \u2192 JobRegistry \u2192 Governance, with setRewardEmitter wiring), Sepolia config (RPC_URL, env vars used by cli/neuracoin.py), running the node client, and a smoke-test checklist. Cross-link from README roadmap entry for testnet launch.",
+        "status": "pending"
       },
       {
         "id": "t10",
-        "title": "Update changelog for v0.2",
+        "title": "Update changelog for v0.3",
         "file": "CHANGELOG.md",
         "test_file": null,
         "type": "docs",
-        "description": "Append a v0.2 section to CHANGELOG.md summarizing governance execution, expanded contract tests, node client polling, CLI wiring, and the new deployment guide. Follow the format established in the v0.1 entry.",
-        "status": "done"
+        "description": "Add a v0.3 section to CHANGELOG.md summarizing contract hardening (token/registry tests, governance execution + tests), Python tooling (real node client loop, CLI subcommands with tests), and the new deployment guide. Follow the format used for v0.1 and v0.2 entries.",
+        "status": "pending"
       }
     ]
   }
