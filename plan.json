@@ -241,7 +241,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "Replace the mock polling in cli/node_client.py with a real loop that queries the JobRegistry via an injected client/provider for assigned jobs, executes a pluggable job handler, submits completion, and updates NodeStats. Keep ComputeNodeClient/Job/NodeStats public API stable and make network and handler dependencies injectable for testing.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t6",
