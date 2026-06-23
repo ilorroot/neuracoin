@@ -250,7 +250,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "New pytest suite for ComputeNodeClient using a fake registry client: covers single-iteration poll picks up a job, executes the handler, records earnings into NodeStats, handles empty-queue iterations, and surfaces handler exceptions without crashing the loop.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t7",
