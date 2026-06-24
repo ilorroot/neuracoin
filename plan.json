@@ -268,7 +268,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Pytest suite invoking the cli/neuracoin.py parser/main with monkeypatched handlers to assert: --help exits 0, unknown subcommand exits non-zero, each subcommand routes to the correct handler with parsed args, and missing required args produce a clear error.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t9",
