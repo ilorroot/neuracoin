@@ -259,7 +259,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Flesh out cli/neuracoin.py with argparse subcommands (status, price, jobs submit/list, provider register/list, wallet balance) dispatching to handler functions that read RPC_URL and contract addresses from env vars. Each subcommand should print structured output and return a non-zero exit code on error.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t8",
