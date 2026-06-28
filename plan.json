@@ -277,7 +277,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Write docs/deployment.md describing prerequisites, contract deploy order (NeuraCoin \u2192 JobRegistry \u2192 Governance, with setRewardEmitter wiring), Sepolia config (RPC_URL, env vars used by cli/neuracoin.py), running the node client, and a smoke-test checklist. Cross-link from README roadmap entry for testnet launch.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t10",
