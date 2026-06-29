@@ -286,7 +286,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Add a v0.3 section to CHANGELOG.md summarizing contract hardening (token/registry tests, governance execution + tests), Python tooling (real node client loop, CLI subcommands with tests), and the new deployment guide. Follow the format used for v0.1 and v0.2 entries.",
-        "status": "pending"
+        "status": "done"
       }
     ]
   }
