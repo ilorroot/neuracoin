@@ -301,7 +301,7 @@
         "test_file": "tests/test_token_emission.py",
         "type": "code",
         "description": "Extend the existing mock-based test pattern from tests/test_token.py to cover emitReward (only callable by reward emitter, respects 400M compute pool cap, mints to provider) and pause/unpause flows (transfers blocked while paused, only owner can toggle). Add MockNRCToken extensions as needed to simulate emitter authorization.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t2",
