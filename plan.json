@@ -310,7 +310,7 @@
         "test_file": "tests/test_registry_disputes.py",
         "type": "code",
         "description": "Add pytest cases covering registerProvider stake requirements (reject below-minimum stake, track staked balance) and flagDispute flow (only requester/provider can flag, escrow held until resolution, state transitions to DISPUTED). Follow the mock pattern already used in tests/test_registry.py.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t3",
