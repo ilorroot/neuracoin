@@ -346,7 +346,7 @@
         "test_file": null,
         "type": "code",
         "description": "Create dashboard/app.js to implement the wallet connection modal behavior referenced in dashboard/index.html: open/close modal on walletBtn click, detect window.ethereum, request accounts, and display the connected address. Wire it via a <script> tag in index.html (note this in the task; no test file since it's browser JS).",
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "t7",
