@@ -328,7 +328,7 @@
         "test_file": "tests/test_node_client.py",
         "type": "code",
         "description": "Replace the mock polling in ComputeNodeClient with a real loop that queries a job dispatcher endpoint (injectable for tests), handles backoff on empty results, executes jobs via a pluggable runner, and updates NodeStats (jobs_completed, total_earned, uptime). Add tests using a fake dispatcher to verify poll cadence, job acceptance, and stats accumulation.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t5",
