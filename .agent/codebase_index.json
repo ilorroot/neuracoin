@@ -141,7 +141,16 @@
         "typing"
       ],
       "notes": "Contains comprehensive test coverage for token mechanics with mock ERC20 contract implementation; tests validate input validation, balance tracking, and supply management."
+    },
+    "dashboard\\app.js": {
+      "hash": "24065406fd27c923",
+      "purpose": "Implements wallet connection modal UI for NeuraCoin dashboard using EIP-1193 provider detection, account requests, and event handling to display connected Ethereum addresses.",
+      "public_api": [],
+      "depends_on": [
+        "dashboard/index.html"
+      ],
+      "notes": "File uses IIFE pattern with no exports; relies on injected window.ethereum provider; handles account/chain changes and disconnection events via provider listeners."
     }
   },
-  "last_refreshed": "2026-05-04T21:38:04.753778+00:00"
+  "last_refreshed": "2026-07-01T21:03:17.552280+00:00"
 }
