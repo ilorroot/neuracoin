@@ -355,7 +355,7 @@
         "test_file": null,
         "type": "docs",
         "description": "Write a step-by-step testnet deployment guide covering: prerequisites (Node/Python/Foundry), contract deployment order (NeuraCoin \u2192 JobRegistry \u2192 Governance), setRewardEmitter wiring, environment variables consumed by cli/neuracoin.py, and how to run a provider node via cli/node_client.py against Sepolia. Reference docs/architecture.md and docs/roadmap.md M1.4.",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t8",
