@@ -337,7 +337,7 @@
         "test_file": "tests/test_cli.py",
         "type": "code",
         "description": "Complete the argparse-based CLI in cli/neuracoin.py so that `status`, `price`, `jobs`, and `provider` subcommands dispatch to handler functions that read RPC/contract addresses from environment variables and print structured output. Add tests that invoke the CLI parser with each subcommand and assert correct handler routing and argument parsing (use monkeypatched handlers).",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t6",
