@@ -319,7 +319,7 @@
         "test_file": "tests/test_governance.py",
         "type": "code",
         "description": "Replace the stub execute() in NuraGovernance with real logic: enforce quorum, voting period end, and successful vote threshold before executing queued proposals; emit ProposalExecuted with execution payload. Add pytest suite verifying createProposal, castVote (weighted by NRC balance), queueProposal, and execute happy-path plus failure modes (insufficient quorum, double-vote, expired).",
-        "status": "pending"
+        "status": "blocked"
       },
       {
         "id": "t4",
