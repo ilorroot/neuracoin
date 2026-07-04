@@ -364,7 +364,7 @@
         "type": "docs",
         "test_file": null,
         "description": "Create a focused provider onboarding doc derived from the FAQ provider section: hardware requirements, installation, staking NRC via JobRegistry.registerProvider, starting the node client, and monitoring earnings. Link from README.md and docs/faq.md.",
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "t9",
